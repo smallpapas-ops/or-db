@@ -342,7 +342,7 @@ function render(){
   <div style="background:linear-gradient(135deg,#1E3A8A,#2563EB);padding:14px 22px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.15)">
     <span style="font-size:16px;font-weight:700;color:#fff">🏥 手術室人才技能資料庫</span>
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-      <a href="manager.html" style="font-size:12px;color:#fff;text-decoration:none;padding:6px 14px;background:#2563EB;border:1.5px solid #60A5FA;border-radius:7px;white-space:nowrap;font-weight:600">📊 主管總覽</a>
+      <a href="#" onclick="openMgr();return false;" style="font-size:12px;color:#fff;text-decoration:none;padding:6px 14px;background:#2563EB;border:1.5px solid #60A5FA;border-radius:7px;white-space:nowrap;font-weight:600">📊 主管總覽</a>
       <span id="sync-dot" class="sync-dot ok"></span>
       <span style="font-size:12px;color:#BFDBFE">${staff.length} 位人員</span>
     </div>
@@ -350,7 +350,7 @@ function render(){
   <div style="max-width:960px;margin:0 auto;padding:20px 14px;display:flex;flex-direction:column;gap:16px">
 
     <!-- 主管總覽入口 -->
-    <a href="manager.html" style="text-decoration:none;display:block">
+    <a href="#" onclick="openMgr();return false;" style="text-decoration:none;display:block">
       <div style="background:linear-gradient(135deg,#1E3A8A 0%,#1D4ED8 50%,#2563EB 100%);border-radius:12px;padding:18px 22px;display:flex;align-items:center;gap:16px;box-shadow:0 4px 12px rgba(37,99,235,.3);cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.92'" onmouseout="this.style.opacity='1'">
         <div style="width:52px;height:52px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">📊</div>
         <div style="flex:1">
@@ -656,5 +656,246 @@ else window.addEventListener("db-ready", startApp);
 // 載入進度動畫
 let p=0;const li=setInterval(()=>{p=Math.min(p+Math.random()*15,85);document.getElementById("load-bar").style.width=p+"%";if(p>=85)clearInterval(li);},300);
 </script>
+
+<!-- 主管總覽 Modal -->
+<div id="mgr-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;overflow-y:auto;padding:0">
+  <div style="background:#F1F5F9;min-height:100vh">
+    <div style="background:linear-gradient(135deg,#1E3A8A,#2563EB);padding:14px 22px;display:flex;align-items:center;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.15)">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#fff">📊 主管訓練分析總覽</div>
+        <div style="font-size:11px;color:#93C5FD;margin-top:1px">資料來源：113年1月 + 114年1月 + 115年1月（共 36,345 筆）</div>
+      </div>
+      <button onclick="closeMgr()" style="margin-left:auto;background:rgba(255,255,255,.15);border:none;border-radius:7px;padding:6px 14px;color:#fff;font-size:13px;cursor:pointer">✕ 關閉</button>
+    </div>
+    <div style="max-width:1100px;margin:0 auto;padding:20px 14px">
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap" id="mgr-tabs">
+        <button style="padding:8px 16px;border-radius:8px;border:none;background:#1E3A8A;color:#fff;font-size:13px;cursor:pointer;font-weight:500" data-mtab="dept">📋 各科獨立天數</button>
+        <button style="padding:8px 16px;border-radius:8px;border:1px solid #E5E7EB;background:#fff;font-size:13px;cursor:pointer;font-weight:500" data-mtab="nurse">👤 個人訓練進度</button>
+        <button style="padding:8px 16px;border-radius:8px;border:1px solid #E5E7EB;background:#fff;font-size:13px;cursor:pointer;font-weight:500" data-mtab="heat">🗺 熱力圖</button>
+      </div>
+
+      <div id="mgr-tab-dept">
+        <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:14px 18px;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:700;color:#1D4ED8;margin-bottom:6px">📌 天數說明</div>
+          <div style="font-size:12px;color:#1E40AF;line-height:1.8">
+            <b>密集訓練天數</b>：從第一次參與該科手術到完成所有高頻術式，這段期間內<b>實際有進手術室的天數</b>（不含休假日）<br>
+            <b>日曆天</b>：同段期間日曆天數（含休假），反映排班密度
+          </div>
+        </div>
+        <div style="background:#fff;border-radius:12px;border:1px solid #E5E7EB;padding:18px 20px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:14px">各科別達到獨立標準所需密集訓練天數</div>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <button id="mgr-d-circ" style="padding:7px 16px;border-radius:7px;background:#2563EB;color:#fff;border:none;font-size:12px;cursor:pointer">流動護士</button>
+            <button id="mgr-d-scrub" style="padding:7px 16px;border-radius:7px;background:#fff;color:#6B7280;border:1px solid #E5E7EB;font-size:12px;cursor:pointer">刷手護士</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr style="background:#F9FAFB;border-bottom:1.5px solid #E5E7EB">
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">科別</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">密集天數<br>中位數</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">最快</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">最慢</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">日曆天<br>中位數</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">人數</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600;min-width:130px">分布</th>
+              </tr></thead>
+              <tbody id="mgr-dept-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="mgr-tab-nurse" style="display:none">
+        <div style="background:#fff;border-radius:12px;border:1px solid #E5E7EB;padding:18px 20px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:14px">個人訓練進度明細</div>
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+            <select id="mgr-n-role" style="border:1px solid #D1D5DB;border-radius:7px;padding:7px 10px;font-size:13px;background:#fff"><option value="刷手">刷手護士</option><option value="流動">流動護士</option></select>
+            <input id="mgr-n-search" placeholder="搜尋姓名…" style="border:1px solid #D1D5DB;border-radius:7px;padding:7px 10px;font-size:13px;width:120px">
+            <select id="mgr-n-sort" style="border:1px solid #D1D5DB;border-radius:7px;padding:7px 10px;font-size:13px;background:#fff">
+              <option value="count">已完成科別數（多→少）</option>
+              <option value="fast">最快密集天數</option>
+              <option value="hire">到職日（新→舊）</option>
+            </select>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr style="background:#F9FAFB;border-bottom:1.5px solid #E5E7EB">
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">#</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">姓名</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">到職日</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">獨立科別</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">最快</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">最慢</th>
+                <th style="padding:9px 10px;font-size:11px;color:#6B7280;text-align:left;font-weight:600">各科密集天數</th>
+              </tr></thead>
+              <tbody id="mgr-nurse-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="mgr-tab-heat" style="display:none">
+        <div style="background:#fff;border-radius:12px;border:1px solid #E5E7EB;padding:18px 20px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:4px">訓練完成熱力圖</div>
+          <div style="font-size:12px;color:#6B7280;margin-bottom:14px">格子數字＝密集訓練天數（深綠=越快、淺綠=較慢、灰=尚未達標）</div>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <button id="mgr-h-circ" style="padding:7px 16px;border-radius:7px;background:#2563EB;color:#fff;border:none;font-size:12px;cursor:pointer">流動護士</button>
+            <button id="mgr-h-scrub" style="padding:7px 16px;border-radius:7px;background:#fff;color:#6B7280;border:1px solid #E5E7EB;font-size:12px;cursor:pointer">刷手護士</button>
+          </div>
+          <div style="overflow-x:auto" id="mgr-heat-wrap"></div>
+          <div style="display:flex;align-items:center;gap:5px;margin-top:14px;flex-wrap:wrap">
+            <span style="font-size:11px;color:#6B7280">快</span>
+            <div style="width:14px;height:14px;border-radius:3px;background:#14532D"></div>
+            <div style="width:14px;height:14px;border-radius:3px;background:#15803D"></div>
+            <div style="width:14px;height:14px;border-radius:3px;background:#16A34A"></div>
+            <div style="width:14px;height:14px;border-radius:3px;background:#4ADE80"></div>
+            <div style="width:14px;height:14px;border-radius:3px;background:#86EFAC"></div>
+            <span style="font-size:11px;color:#6B7280">慢</span>
+            <div style="width:14px;height:14px;border-radius:3px;background:#F3F4F6;border:1px solid #E5E7EB;margin-left:8px"></div>
+            <span style="font-size:11px;color:#6B7280">未達標</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="mgr-tt" style="position:fixed;background:#111;color:#fff;padding:8px 12px;border-radius:7px;font-size:12px;pointer-events:none;z-index:9999;display:none;max-width:220px;line-height:1.6;white-space:pre-line"></div>
+
+<script>
+(function(){
+var MGR={"deptStats":{"一般外科":{"流動":{"actual_median":18,"actual_min":5,"actual_max":76,"calendar_median":196,"calendar_min":38,"calendar_max":827,"count":34},"刷手":{"actual_median":15,"actual_min":3,"actual_max":67,"calendar_median":161,"calendar_min":15,"calendar_max":464,"count":43}},"乳房外科":{"流動":{"actual_median":18,"actual_min":7,"actual_max":38,"calendar_median":526,"calendar_min":226,"calendar_max":794,"count":10},"刷手":{"actual_median":12,"actual_min":8,"actual_max":28,"calendar_median":260,"calendar_min":43,"calendar_max":589,"count":12}},"口腔外科":{"流動":{"actual_median":10,"actual_min":6,"actual_max":24,"calendar_median":764,"calendar_min":127,"calendar_max":813,"count":4},"刷手":{"actual_median":11,"actual_min":6,"actual_max":16,"calendar_median":211,"calendar_min":36,"calendar_max":869,"count":5}},"婦產科":{"流動":{"actual_median":91,"actual_min":91,"actual_max":91,"calendar_median":752,"calendar_min":752,"calendar_max":752,"count":1}},"小兒外科":{"流動":{"actual_median":6,"actual_min":6,"actual_max":6,"calendar_median":715,"calendar_min":715,"calendar_max":715,"count":1},"刷手":{"actual_median":7,"actual_min":7,"actual_max":7,"calendar_median":617,"calendar_min":617,"calendar_max":617,"count":1}},"心臟血管外科":{"流動":{"actual_median":17,"actual_min":3,"actual_max":58,"calendar_median":225,"calendar_min":8,"calendar_max":838,"count":22},"刷手":{"actual_median":9,"actual_min":2,"actual_max":49,"calendar_median":213,"calendar_min":5,"calendar_max":771,"count":24}},"整型外科":{"流動":{"actual_median":17,"actual_min":5,"actual_max":46,"calendar_median":408,"calendar_min":95,"calendar_max":867,"count":32},"刷手":{"actual_median":12,"actual_min":3,"actual_max":38,"calendar_median":208,"calendar_min":38,"calendar_max":826,"count":28}},"泌尿科":{"流動":{"actual_median":10,"actual_min":1,"actual_max":61,"calendar_median":98,"calendar_min":1,"calendar_max":797,"count":41},"刷手":{"actual_median":11,"actual_min":3,"actual_max":43,"calendar_median":107,"calendar_min":6,"calendar_max":458,"count":49}},"牙醫部":{"流動":{"actual_median":1,"actual_min":1,"actual_max":5,"calendar_median":1,"calendar_min":1,"calendar_max":330,"count":7},"刷手":{"actual_median":2,"actual_min":1,"actual_max":6,"calendar_median":164,"calendar_min":1,"calendar_max":487,"count":12}},"直腸外科":{"流動":{"actual_median":14,"actual_min":8,"actual_max":29,"calendar_median":379,"calendar_min":84,"calendar_max":664,"count":15},"刷手":{"actual_median":12,"actual_min":3,"actual_max":31,"calendar_median":256,"calendar_min":18,"calendar_max":726,"count":16}},"眼科":{"流動":{"actual_median":7,"actual_min":2,"actual_max":28,"calendar_median":147,"calendar_min":5,"calendar_max":519,"count":17},"刷手":{"actual_median":7,"actual_min":2,"actual_max":30,"calendar_median":35,"calendar_min":6,"calendar_max":749,"count":33}},"神經外科":{"流動":{"actual_median":14,"actual_min":4,"actual_max":46,"calendar_median":252,"calendar_min":43,"calendar_max":792,"count":17},"刷手":{"actual_median":18,"actual_min":5,"actual_max":54,"calendar_median":254,"calendar_min":10,"calendar_max":806,"count":19}},"耳鼻喉科":{"流動":{"actual_median":18,"actual_min":9,"actual_max":93,"calendar_median":344,"calendar_min":133,"calendar_max":832,"count":25},"刷手":{"actual_median":17,"actual_min":7,"actual_max":28,"calendar_median":207,"calendar_min":31,"calendar_max":826,"count":22}},"胸腔外科":{"流動":{"actual_median":22,"actual_min":8,"actual_max":30,"calendar_median":575,"calendar_min":148,"calendar_max":764,"count":10},"刷手":{"actual_median":22,"actual_min":9,"actual_max":32,"calendar_median":456,"calendar_min":114,"calendar_max":793,"count":13}},"骨科":{"流動":{"actual_median":18,"actual_min":4,"actual_max":61,"calendar_median":111,"calendar_min":4,"calendar_max":490,"count":40},"刷手":{"actual_median":18,"actual_min":3,"actual_max":52,"calendar_median":114,"calendar_min":7,"calendar_max":864,"count":49}}},"nurseSummary":[{"id":"10273","name":"王婷婷","role":"流動","hireDate":"1997-08-01","count":1,"deptsDone":{"骨科":15},"deptsCalendar":{"骨科":74},"minActual":15,"maxActual":15,"minCalendar":74,"maxCalendar":74},{"id":"10361","name":"李靜怡","role":"流動","hireDate":"1997-08-16","count":6,"deptsDone":{"一般外科":34,"整型外科":15,"泌尿科":6,"直腸外科":11,"耳鼻喉科":29,"骨科":47},"deptsCalendar":{"一般外科":253,"整型外科":488,"泌尿科":60,"直腸外科":103,"耳鼻喉科":596,"骨科":490},"minActual":6,"maxActual":47,"minCalendar":60,"maxCalendar":596},{"id":"10361","name":"李靜怡","role":"刷手","hireDate":"1997-08-16","count":3,"deptsDone":{"一般外科":21,"整型外科":9,"胸腔外科":13},"deptsCalendar":{"一般外科":336,"整型外科":655,"胸腔外科":591},"minActual":9,"maxActual":21,"minCalendar":336,"maxCalendar":655},{"id":"10367","name":"張瑋恩","role":"流動","hireDate":"1997-08-16","count":7,"deptsDone":{"一般外科":12,"整型外科":10,"泌尿科":11,"直腸外科":9,"耳鼻喉科":21,"胸腔外科":12,"骨科":61},"deptsCalendar":{"一般外科":49,"整型外科":95,"泌尿科":109,"直腸外科":84,"耳鼻喉科":344,"胸腔外科":148,"骨科":351},"minActual":9,"maxActual":61,"minCalendar":49,"maxCalendar":351},{"id":"10367","name":"張瑋恩","role":"刷手","hireDate":"1997-08-16","count":3,"deptsDone":{"一般外科":5,"直腸外科":3,"胸腔外科":25},"deptsCalendar":{"一般外科":15,"直腸外科":218,"胸腔外科":456},"minActual":3,"maxActual":25,"minCalendar":15,"maxCalendar":456},{"id":"10740","name":"李佳容","role":"流動","hireDate":"1998-04-02","count":8,"deptsDone":{"一般外科":29,"乳房外科":18,"整型外科":37,"泌尿科":26,"直腸外科":16,"神經外科":6,"耳鼻喉科":12,"骨科":14},"deptsCalendar":{"一般外科":308,"乳房外科":794,"整型外科":684,"泌尿科":98,"直腸外科":386,"神經外科":170,"耳鼻喉科":183,"骨科":49},"minActual":6,"maxActual":37,"minCalendar":49,"maxCalendar":794},{"id":"10740","name":"李佳容","role":"刷手","hireDate":"1998-04-02","count":4,"deptsDone":{"一般外科":16,"泌尿科":33,"耳鼻喉科":23,"骨科":20},"deptsCalendar":{"一般外科":371,"泌尿科":344,"耳鼻喉科":826,"骨科":268},"minActual":16,"maxActual":33,"minCalendar":268,"maxCalendar":826},{"id":"10746","name":"王玉仙","role":"流動","hireDate":"1998-04-13","count":8,"deptsDone":{"一般外科":53,"乳房外科":32,"心臟血管外科":22,"整型外科":24,"泌尿科":55,"直腸外科":16,"耳鼻喉科":93,"骨科":23},"deptsCalendar":{"一般外科":309,"乳房外科":450,"心臟血管外科":776,"整型外科":169,"泌尿科":169,"直腸外科":355,"耳鼻喉科":732,"骨科":124},"minActual":16,"maxActual":93,"minCalendar":124,"maxCalendar":776},{"id":"10746","name":"王玉仙","role":"刷手","hireDate":"1998-04-13","count":1,"deptsDone":{"泌尿科":18},"deptsCalendar":{"泌尿科":336},"minActual":18,"maxActual":18,"minCalendar":336,"maxCalendar":336},{"id":"10922","name":"陳玉茹","role":"流動","hireDate":"1998-09-01","count":5,"deptsDone":{"一般外科":6,"心臟血管外科":12,"整型外科":14,"泌尿科":44,"骨科":13},"deptsCalendar":{"一般外科":61,"心臟血管外科":356,"整型外科":337,"泌尿科":337,"骨科":65},"minActual":6,"maxActual":44,"minCalendar":61,"maxCalendar":356},{"id":"11598","name":"羅秀如","role":"流動","hireDate":"2001-04-18","count":5,"deptsDone":{"一般外科":31,"整型外科":21,"泌尿科":48,"神經外科":8,"骨科":16},"deptsCalendar":{"一般外科":276,"整型外科":484,"泌尿科":404,"神經外科":67,"骨科":101},"minActual":8,"maxActual":48,"minCalendar":67,"maxCalendar":484},{"id":"11598","name":"羅秀如","role":"刷手","hireDate":"2001-04-18","count":3,"deptsDone":{"整型外科":11,"泌尿科":9,"神經外科":39},"deptsCalendar":{"整型外科":714,"泌尿科":133,"神經外科":490},"minActual":9,"maxActual":39,"minCalendar":133,"maxCalendar":714},{"id":"12295","name":"林奕辰","role":"流動","hireDate":"2004-10-21","count":8,"deptsDone":{"一般外科":19,"乳房外科":20,"整型外科":27,"泌尿科":8,"眼科":3,"耳鼻喉科":20,"胸腔外科":22,"骨科":7},"deptsCalendar":{"一般外科":108,"乳房外科":526,"整型外科":502,"泌尿科":33,"眼科":17,"耳鼻喉科":305,"胸腔外科":636,"骨科":26},"minActual":3,"maxActual":27,"minCalendar":17,"maxCalendar":636},{"id":"12295","name":"林奕辰","role":"刷手","hireDate":"2004-10-21","count":3,"deptsDone":{"泌尿科":7,"眼科":16,"耳鼻喉科":10},"deptsCalendar":{"泌尿科":255,"眼科":378,"耳鼻喉科":326},"minActual":7,"maxActual":16,"minCalendar":255,"maxCalendar":378},{"id":"12483","name":"林靜子","role":"流動","hireDate":"2005-09-02","count":4,"deptsDone":{"整型外科":14,"泌尿科":11,"耳鼻喉科":9,"骨科":28},"deptsCalendar":{"整型外科":694,"泌尿科":128,"耳鼻喉科":786,"骨科":162},"minActual":9,"maxActual":28,"minCalendar":128,"maxCalendar":786},{"id":"12483","name":"林靜子","role":"刷手","hireDate":"2005-09-02","count":2,"deptsDone":{"一般外科":10,"泌尿科":7},"deptsCalendar":{"一般外科":140,"泌尿科":106},"minActual":7,"maxActual":10,"minCalendar":106,"maxCalendar":140},{"id":"12847","name":"郭妍伶","role":"流動","hireDate":"2007-07-02","count":5,"deptsDone":{"一般外科":8,"整型外科":7,"泌尿科":5,"耳鼻喉科":25,"骨科":27},"deptsCalendar":{"一般外科":197,"整型外科":115,"泌尿科":7,"耳鼻喉科":306,"骨科":111},"minActual":5,"maxActual":27,"minCalendar":7,"maxCalendar":306},{"id":"12847","name":"郭妍伶","role":"刷手","hireDate":"2007-07-02","count":2,"deptsDone":{"泌尿科":18,"骨科":13},"deptsCalendar":{"泌尿科":130,"骨科":233},"minActual":13,"maxActual":18,"minCalendar":130,"maxCalendar":233},{"id":"13288","name":"王嘉羚","role":"流動","hireDate":"2010-01-04","count":8,"deptsDone":{"一般外科":13,"整型外科":10,"泌尿科":11,"直腸外科":8,"眼科":2,"神經外科":6,"耳鼻喉科":15,"骨科":22},"deptsCalendar":{"一般外科":327,"整型外科":421,"泌尿科":165,"直腸外科":520,"眼科":5,"神經外科":162,"耳鼻喉科":488,"骨科":224},"minActual":2,"maxActual":22,"minCalendar":5,"maxCalendar":520},{"id":"13288","name":"王嘉羚","role":"刷手","hireDate":"2010-01-04","count":4,"deptsDone":{"一般外科":7,"泌尿科":10,"眼科":10,"骨科":14},"deptsCalendar":{"一般外科":251,"泌尿科":160,"眼科":115,"骨科":190},"minActual":7,"maxActual":14,"minCalendar":115,"maxCalendar":251},{"id":"13565","name":"程郁淳","role":"流動","hireDate":"2011-06-16","count":8,"deptsDone":{"一般外科":15,"婦產科":91,"整型外科":33,"泌尿科":9,"直腸外科":15,"神經外科":14,"耳鼻喉科":23,"骨科":12},"deptsCalendar":{"一般外科":122,"婦產科":752,"整型外科":581,"泌尿科":37,"直腸外科":379,"神經外科":49,"耳鼻喉科":501,"骨科":62},"minActual":9,"maxActual":91,"minCalendar":37,"maxCalendar":752},{"id":"13565","name":"程郁淳","role":"刷手","hireDate":"2011-06-16","count":3,"deptsDone":{"一般外科":12,"泌尿科":12,"神經外科":9},"deptsCalendar":{"一般外科":464,"泌尿科":458,"神經外科":102},"minActual":9,"maxActual":12,"minCalendar":102,"maxCalendar":464},{"id":"14040","name":"黃怡婷","role":"流動","hireDate":"2013-05-21","count":7,"deptsDone":{"一般外科":23,"小兒外科":6,"心臟血管外科":3,"整型外科":46,"泌尿科":7,"耳鼻喉科":11,"骨科":8},"deptsCalendar":{"一般外科":196,"小兒外科":715,"心臟血管外科":8,"整型外科":867,"泌尿科":34,"耳鼻喉科":162,"骨科":21},"minActual":3,"maxActual":46,"minCalendar":8,"maxCalendar":867},{"id":"14040","name":"黃怡婷","role":"刷手","hireDate":"2013-05-21","count":4,"deptsDone":{"一般外科":10,"心臟血管外科":2,"泌尿科":22,"骨科":25},"deptsCalendar":{"一般外科":243,"心臟血管外科":5,"泌尿科":350,"骨科":331},"minActual":2,"maxActual":25,"minCalendar":5,"maxCalendar":350},{"id":"14055","name":"洪怡婷","role":"流動","hireDate":"2013-06-17","count":8,"deptsDone":{"一般外科":21,"心臟血管外科":12,"整型外科":17,"泌尿科":10,"直腸外科":20,"神經外科":10,"耳鼻喉科":29,"骨科":5},"deptsCalendar":{"一般外科":163,"心臟血管外科":444,"整型外科":275,"泌尿科":52,"直腸外科":664,"神經外科":602,"耳鼻喉科":133,"骨科":10},"minActual":5,"maxActual":29,"minCalendar":10,"maxCalendar":664},{"id":"14055","name":"洪怡婷","role":"刷手","hireDate":"2013-06-17","count":4,"deptsDone":{"泌尿科":21,"眼科":3,"耳鼻喉科":24,"骨科":42},"deptsCalendar":{"泌尿科":324,"眼科":514,"耳鼻喉科":191,"骨科":864},"minActual":3,"maxActual":42,"minCalendar":191,"maxCalendar":864},{"id":"14190","name":"楊衣甄","role":"流動","hireDate":"2013-11-18","count":8,"deptsDone":{"一般外科":20,"乳房外科":17,"心臟血管外科":18,"整型外科":8,"泌尿科":6,"直腸外科":20,"耳鼻喉科":22,"骨科":16},"deptsCalendar":{"一般外科":160,"乳房外科":309,"心臟血管外科":483,"整型外科":119,"泌尿科":66,"直腸外科":660,"耳鼻喉科":376,"骨科":63},"minActual":6,"maxActual":22,"minCalendar":63,"maxCalendar":660},{"id":"14190","name":"楊衣甄","role":"刷手","hireDate":"2013-11-18","count":5,"deptsDone":{"一般外科":7,"整型外科":22,"泌尿科":7,"神經外科":7,"骨科":5},"deptsCalendar":{"一般外科":114,"整型外科":658,"泌尿科":50,"神經外科":254,"骨科":27},"minActual":5,"maxActual":22,"minCalendar":27,"maxCalendar":658},{"id":"14444","name":"李宜鵑","role":"流動","hireDate":"2014-11-17","count":12,"deptsDone":{"一般外科":14,"乳房外科":7,"口腔外科":24,"心臟血管外科":7,"整型外科":5,"泌尿科":3,"牙醫部":1,"眼科":10,"神經外科":46,"耳鼻喉科":17,"胸腔外科":24,"骨科":14},"deptsCalendar":{"一般外科":123,"乳房外科":246,"口腔外科":764,"心臟血管外科":94,"整型外科":113,"泌尿科":8,"牙醫部":1,"眼科":193,"神經外科":792,"耳鼻喉科":257,"胸腔外科":575,"骨科":67},"minActual":1,"maxActual":46,"minCalendar":1,"maxCalendar":792},{"id":"14444","name":"李宜鵑","role":"刷手","hireDate":"2014-11-17","count":4,"deptsDone":{"一般外科":14,"泌尿科":11,"眼科":3,"骨科":21},"deptsCalendar":{"一般外科":166,"泌尿科":64,"眼科":456,"骨科":123},"minActual":3,"maxActual":21,"minCalendar":64,"maxCalendar":456},{"id":"14492","name":"謝佩芳","role":"流動","hireDate":"2015-03-23","count":8,"deptsDone":{"一般外科":5,"口腔外科":10,"整型外科":10,"泌尿科":40,"牙醫部":2,"眼科":3,"耳鼻喉科":12,"骨科":8},"deptsCalendar":{"一般外科":38,"口腔外科":813,"整型外科":258,"泌尿科":513,"牙醫部":39,"眼科":443,"耳鼻喉科":832,"骨科":52},"minActual":2,"maxActual":40,"minCalendar":38,"maxCalendar":832},{"id":"14492","name":"謝佩芳","role":"刷手","hireDate":"2015-03-23","count":4,"deptsDone":{"一般外科":22,"口腔外科":11,"牙醫部":2,"骨科":7},"deptsCalendar":{"一般外科":221,"口腔外科":869,"牙醫部":170,"骨科":62},"minActual":2,"maxActual":22,"minCalendar":62,"maxCalendar":869},{"id":"14536","name":"張佩琪","role":"流動","hireDate":"2015-05-25","count":10,"deptsDone":{"一般外科":28,"乳房外科":20,"心臟血管外科":19,"整型外科":30,"泌尿科":11,"牙醫部":1,"眼科":5,"神經外科":24,"耳鼻喉科":12,"骨科":33},"deptsCalendar":{"一般外科":291,"乳房外科":597,"心臟血管外科":415,"整型外科":470,"泌尿科":50,"牙醫部":1,"眼科":107,"神經外科":465,"耳鼻喉科":184,"骨科":161},"minActual":1,"maxActual":33,"minCalendar":1,"maxCalendar":597},{"id":"14536","name":"張佩琪","role":"刷手","hireDate":"2015-05-25","count":6,"deptsDone":{"一般外科":10,"整型外科":19,"泌尿科":25,"眼科":2,"耳鼻喉科":13,"骨科":21},"deptsCalendar":{"一般外科":146,"整型外科":436,"泌尿科":156,"眼科":35,"耳鼻喉科":194,"骨科":158},"minActual":2,"maxActual":25,"minCalendar":35,"maxCalendar":436},{"id":"14635","name":"汪瑄柔","role":"流動","hireDate":"2015-08-17","count":7,"deptsDone":{"一般外科":9,"心臟血管外科":7,"整型外科":40,"泌尿科":12,"直腸外科":10,"耳鼻喉科":22,"骨科":25},"deptsCalendar":{"一般外科":76,"心臟血管外科":51,"整型外科":597,"泌尿科":111,"直腸外科":304,"耳鼻喉科":709,"骨科":159},"minActual":7,"maxActual":40,"minCalendar":51,"maxCalendar":709},{"id":"14635","name":"汪瑄柔","role":"刷手","hireDate":"2015-08-17","count":5,"deptsDone":{"一般外科":4,"心臟血管外科":13,"泌尿科":12,"胸腔外科":17,"骨科":28},"deptsCalendar":{"一般外科":45,"心臟血管外科":75,"泌尿科":111,"胸腔外科":793,"骨科":172},"minActual":4,"maxActual":28,"minCalendar":45,"maxCalendar":793},{"id":"14958","name":"林昕澄","role":"流動","hireDate":"2017-03-20","count":11,"deptsDone":{"一般外科":17,"口腔外科":8,"心臟血管外科":17,"整型外科":35,"泌尿科":3,"牙醫部":5,"直腸外科":12,"神經外科":4,"耳鼻喉科":20,"胸腔外科":21,"骨科":10},"deptsCalendar":{"一般外科":115,"口腔外科":127,"心臟血管外科":421,"整型外科":407,"泌尿科":10,"牙醫部":172,"直腸外科":267,"神經外科":65,"耳鼻喉科":253,"胸腔外科":474,"骨科":63},"minActual":3,"maxActual":35,"minCalendar":10,"maxCalendar":474},{"id":"14958","name":"林昕澄","role":"刷手","hireDate":"2017-03-20","count":5,"deptsDone":{"口腔外科":16,"整型外科":20,"泌尿科":12,"牙醫部":1,"骨科":35},"deptsCalendar":{"口腔外科":365,"整型外科":826,"泌尿科":95,"牙醫部":1,"骨科":548},"minActual":1,"maxActual":35,"minCalendar":1,"maxCalendar":826},{"id":"15068","name":"高靖緹","role":"流動","hireDate":"2017-08-07","count":8,"deptsDone":{"一般外科":19,"整型外科":20,"泌尿科":15,"直腸外科":10,"眼科":16,"耳鼻喉科":12,"胸腔外科":8,"骨科":10},"deptsCalendar":{"一般外科":255,"整型外科":292,"泌尿科":58,"直腸外科":260,"眼科":351,"耳鼻喉科":197,"胸腔外科":281,"骨科":43},"minActual":8,"maxActual":20,"minCalendar":43,"maxCalendar":351},{"id":"15068","name":"高靖緹","role":"刷手","hireDate":"2017-08-07","count":7,"deptsDone":{"一般外科":17,"整型外科":10,"泌尿科":5,"牙醫部":1,"眼科":13,"神經外科":9,"骨科":18},"deptsCalendar":{"一般外科":272,"整型外科":435,"泌尿科":58,"牙醫部":1,"眼科":749,"神經外科":611,"骨科":132},"minActual":1,"maxActual":18,"minCalendar":1,"maxCalendar":749},{"id":"15268","name":"卓湘晴","role":"流動","hireDate":"2018-07-02","count":8,"deptsDone":{"一般外科":10,"心臟血管外科":15,"整型外科":21,"泌尿科":18,"神經外科":30,"耳鼻喉科":18,"胸腔外科":17,"骨科":24},"deptsCalendar":{"一般外科":76,"心臟血管外科":82,"整型外科":548,"泌尿科":175,"神經外科":693,"耳鼻喉科":547,"胸腔外科":580,"骨科":100},"minActual":10,"maxActual":30,"minCalendar":76,"maxCalendar":693},{"id":"15268","name":"卓湘晴","role":"刷手","hireDate":"2018-07-02","count":5,"deptsDone":{"一般外科":15,"心臟血管外科":7,"泌尿科":10,"神經外科":18,"骨科":12},"deptsCalendar":{"一般外科":198,"心臟血管外科":50,"泌尿科":116,"神經外科":518,"骨科":56},"minActual":7,"maxActual":18,"minCalendar":50,"maxCalendar":518},{"id":"15321","name":"陳柏宇","role":"流動","hireDate":"2018-08-13","count":4,"deptsDone":{"一般外科":48,"泌尿科":60,"神經外科":24,"骨科":18},"deptsCalendar":{"一般外科":827,"泌尿科":797,"神經外科":256,"骨科":87},"minActual":18,"maxActual":60,"minCalendar":87,"maxCalendar":827},{"id":"15321","name":"陳柏宇","role":"刷手","hireDate":"2018-08-13","count":4,"deptsDone":{"一般外科":20,"整型外科":19,"胸腔外科":24,"骨科":33},"deptsCalendar":{"一般外科":249,"整型外科":651,"胸腔外科":577,"骨科":134},"minActual":19,"maxActual":33,"minCalendar":134,"maxCalendar":651},{"id":"15349","name":"黃品喆","role":"流動","hireDate":"2018-09-03","count":6,"deptsDone":{"一般外科":7,"心臟血管外科":20,"整型外科":18,"泌尿科":8,"眼科":9,"骨科":36},"deptsCalendar":{"一般外科":38,"心臟血管外科":190,"整型外科":217,"泌尿科":66,"眼科":196,"骨科":130},"minActual":7,"maxActual":36,"minCalendar":38,"maxCalendar":217},{"id":"15349","name":"黃品喆","role":"刷手","hireDate":"2018-09-03","count":4,"deptsDone":{"一般外科":3,"心臟血管外科":18,"泌尿科":12,"骨科":8},"deptsCalendar":{"一般外科":47,"心臟血管外科":592,"泌尿科":56,"骨科":30},"minActual":3,"maxActual":18,"minCalendar":30,"maxCalendar":592},{"id":"15423","name":"周芳怡","role":"流動","hireDate":"2018-12-03","count":9,"deptsDone":{"一般外科":5,"心臟血管外科":31,"整型外科":11,"泌尿科":12,"直腸外科":14,"眼科":5,"神經外科":15,"耳鼻喉科":10,"骨科":22},"deptsCalendar":{"一般外科":114,"心臟血管外科":838,"整型外科":218,"泌尿科":148,"直腸外科":313,"眼科":310,"神經外科":613,"耳鼻喉科":249,"骨科":161},"minActual":5,"maxActual":31,"minCalendar":114,"maxCalendar":838},{"id":"15423","name":"周芳怡","role":"刷手","hireDate":"2018-12-03","count":6,"deptsDone":{"一般外科":7,"心臟血管外科":22,"泌尿科":5,"神經外科":25,"耳鼻喉科":15,"骨科":8},"deptsCalendar":{"一般外科":69,"心臟血管外科":771,"泌尿科":17,"神經外科":507,"耳鼻喉科":162,"骨科":24},"minActual":5,"maxActual":25,"minCalendar":17,"maxCalendar":771},{"id":"15508","name":"徐禾沐","role":"流動","hireDate":"2019-06-03","count":5,"deptsDone":{"一般外科":76,"心臟血管外科":58,"整型外科":22,"泌尿科":24,"骨科":49},"deptsCalendar":{"一般外科":644,"心臟血管外科":752,"整型外科":527,"泌尿科":294,"骨科":135},"minActual":22,"maxActual":76,"minCalendar":135,"maxCalendar":752},{"id":"15508","name":"徐禾沐","role":"刷手","hireDate":"2019-06-03","count":1,"deptsDone":{"骨科":15},"deptsCalendar":{"骨科":106},"minActual":15,"maxActual":15,"minCalendar":106,"maxCalendar":106},{"id":"15544","name":"黃淑嬅","role":"流動","hireDate":"2019-08-05","count":9,"deptsDone":{"一般外科":18,"乳房外科":12,"整型外科":17,"泌尿科":4,"牙醫部":1,"直腸外科":12,"神經外科":19,"耳鼻喉科":11,"骨科":23},"deptsCalendar":{"一般外科":365,"乳房外科":351,"整型外科":415,"泌尿科":25,"牙醫部":1,"直腸外科":551,"神經外科":666,"耳鼻喉科":324,"骨科":64},"minActual":1,"maxActual":23,"minCalendar":1,"maxCalendar":666},{"id":"15544","name":"黃淑嬅","role":"刷手","hireDate":"2019-08-05","count":3,"deptsDone":{"一般外科":7,"泌尿科":34,"骨科":3},"deptsCalendar":{"一般外科":67,"泌尿科":329,"骨科":11},"minActual":3,"maxActual":34,"minCalendar":11,"maxCalendar":329},{"id":"15577","name":"鄒芮宸","role":"流動","hireDate":"2019-08-19","count":8,"deptsDone":{"一般外科":31,"心臟血管外科":51,"整型外科":7,"泌尿科":61,"牙醫部":1,"神經外科":16,"胸腔外科":28,"骨科":53},"deptsCalendar":{"一般外科":267,"心臟血管外科":333,"整型外科":150,"泌尿科":748,"牙醫部":1,"神經外科":252,"胸腔外科":764,"骨科":166},"minActual":1,"maxActual":61,"minCalendar":1,"maxCalendar":764},{"id":"15577","name":"鄒芮宸","role":"刷手","hireDate":"2019-08-19","count":2,"deptsDone":{"心臟血管外科":49,"骨科":16},"deptsCalendar":{"心臟血管外科":472,"骨科":94},"minActual":16,"maxActual":49,"minCalendar":94,"maxCalendar":472},{"id":"15664","name":"陳金燕","role":"流動","hireDate":"2019-11-18","count":13,"deptsDone":{"一般外科":43,"乳房外科":38,"口腔外科":6,"心臟血管外科":23,"整型外科":25,"泌尿科":20,"牙醫部":2,"直腸外科":29,"眼科":19,"神經外科":32,"耳鼻喉科":12,"胸腔外科":30,"骨科":21},"deptsCalendar":{"一般外科":295,"乳房外科":793,"口腔外科":346,"心臟血管外科":225,"整型外科":177,"泌尿科":110,"牙醫部":330,"直腸外科":564,"眼科":301,"神經外科":138,"耳鼻喉科":155,"胸腔外科":461,"骨科":70},"minActual":2,"maxActual":43,"minCalendar":70,"maxCalendar":793},{"id":"15664","name":"陳金燕","role":"刷手","hireDate":"2019-11-18","count":3,"deptsDone":{"一般外科":12,"整型外科":8,"骨科":22},"deptsCalendar":{"一般外科":375,"整型外科":550,"骨科":170},"minActual":8,"maxActual":22,"minCalendar":170,"maxCalendar":550},{"id":"15783","name":"蘇奕臻","role":"流動","hireDate":"2020-07-13","count":8,"deptsDone":{"一般外科":18,"乳房外科":15,"心臟血管外科":6,"整型外科":14,"泌尿科":33,"眼科":10,"耳鼻喉科":23,"骨科":26},"deptsCalendar":{"一般外科":135,"乳房外科":596,"心臟血管外科":123,"整型外科":575,"泌尿科":331,"眼科":107,"耳鼻喉科":666,"骨科":133},"minActual":6,"maxActual":33,"minCalendar":107,"maxCalendar":666},{"id":"15783","name":"蘇奕臻","role":"刷手","hireDate":"2020-07-13","count":4,"deptsDone":{"一般外科":25,"泌尿科":16,"眼科":20,"骨科":12},"deptsCalendar":{"一般外科":306,"泌尿科":99,"眼科":687,"骨科":52},"minActual":12,"maxActual":25,"minCalendar":52,"maxCalendar":687},{"id":"15813","name":"曾雅筠","role":"流動","hireDate":"2020-08-17","count":8,"deptsDone":{"一般外科":9,"心臟血管外科":27,"整型外科":12,"泌尿科":13,"直腸外科":14,"眼科":3,"胸腔外科":29,"骨科":17},"deptsCalendar":{"一般外科":135,"心臟血管外科":550,"整型外科":474,"泌尿科":127,"直腸外科":571,"眼科":43,"胸腔外科":714,"骨科":122},"minActual":3,"maxActual":29,"minCalendar":43,"maxCalendar":714},{"id":"15813","name":"曾雅筠","role":"刷手","hireDate":"2020-08-17","count":7,"deptsDone":{"一般外科":18,"心臟血管外科":38,"整型外科":15,"眼科":30,"神經外科":24,"耳鼻喉科":10,"骨科":27},"deptsCalendar":{"一般外科":186,"心臟血管外科":477,"整型外科":217,"眼科":313,"神經外科":254,"耳鼻喉科":277,"骨科":155},"minActual":10,"maxActual":38,"minCalendar":155,"maxCalendar":477},{"id":"16016","name":"林峙廷","role":"流動","hireDate":"2021-08-16","count":4,"deptsDone":{"一般外科":17,"心臟血管外科":10,"胸腔外科":11,"骨科":18},"deptsCalendar":{"一般外科":263,"心臟血管外科":108,"胸腔外科":462,"骨科":335},"minActual":10,"maxActual":18,"minCalendar":108,"maxCalendar":462},{"id":"16016","name":"林峙廷","role":"刷手","hireDate":"2021-08-16","count":4,"deptsDone":{"乳房外科":24,"泌尿科":20,"耳鼻喉科":11,"骨科":36},"deptsCalendar":{"乳房外科":472,"泌尿科":136,"耳鼻喉科":792,"骨科":71},"minActual":11,"maxActual":36,"minCalendar":71,"maxCalendar":792},{"id":"16304","name":"王婷玉","role":"流動","hireDate":"2022-08-22","count":5,"deptsDone":{"一般外科":24,"心臟血管外科":5,"泌尿科":2,"眼科":7,"骨科":9},"deptsCalendar":{"一般外科":304,"心臟血管外科":28,"泌尿科":2,"眼科":29,"骨科":221},"minActual":2,"maxActual":24,"minCalendar":2,"maxCalendar":304},{"id":"16304","name":"王婷玉","role":"刷手","hireDate":"2022-08-22","count":10,"deptsDone":{"一般外科":13,"口腔外科":6,"心臟血管外科":8,"整型外科":32,"泌尿科":43,"牙醫部":1,"眼科":5,"耳鼻喉科":14,"胸腔外科":32,"骨科":10},"deptsCalendar":{"一般外科":117,"口腔外科":88,"心臟血管外科":50,"整型外科":575,"泌尿科":279,"牙醫部":1,"眼科":43,"耳鼻喉科":182,"胸腔外科":764,"骨科":26},"minActual":1,"maxActual":43,"minCalendar":1,"maxCalendar":764},{"id":"16343","name":"黃玉秀","role":"流動","hireDate":"2022-09-19","count":7,"deptsDone":{"一般外科":17,"整型外科":15,"泌尿科":2,"眼科":20,"神經外科":10,"耳鼻喉科":11,"骨科":37},"deptsCalendar":{"一般外科":136,"整型外科":309,"泌尿科":7,"眼科":519,"神經外科":43,"耳鼻喉科":456,"骨科":251},"minActual":2,"maxActual":37,"minCalendar":7,"maxCalendar":519},{"id":"16343","name":"黃玉秀","role":"刷手","hireDate":"2022-09-19","count":11,"deptsDone":{"一般外科":55,"心臟血管外科":14,"整型外科":22,"泌尿科":6,"牙醫部":3,"直腸外科":11,"眼科":13,"神經外科":29,"耳鼻喉科":24,"胸腔外科":22,"骨科":17},"deptsCalendar":{"一般外科":458,"心臟血管外科":109,"整型外科":144,"泌尿科":29,"牙醫部":487,"直腸外科":263,"眼科":105,"神經外科":140,"耳鼻喉科":320,"胸腔外科":608,"骨科":56},"minActual":3,"maxActual":55,"minCalendar":29,"maxCalendar":608},{"id":"16360","name":"辜嬿潔","role":"流動","hireDate":"2022-10-17","count":7,"deptsDone":{"一般外科":13,"整型外科":15,"泌尿科":6,"眼科":4,"神經外科":7,"耳鼻喉科":22,"骨科":11},"deptsCalendar":{"一般外科":240,"整型外科":408,"泌尿科":42,"眼科":147,"神經外科":422,"耳鼻喉科":596,"骨科":93},"minActual":4,"maxActual":22,"minCalendar":42,"maxCalendar":596},{"id":"16360","name":"辜嬿潔","role":"刷手","hireDate":"2022-10-17","count":8,"deptsDone":{"一般外科":14,"心臟血管外科":3,"整型外科":5,"泌尿科":27,"直腸外科":20,"眼科":7,"神經外科":49,"骨科":7},"deptsCalendar":{"一般外科":81,"心臟血管外科":19,"整型外科":38,"泌尿科":153,"直腸外科":726,"眼科":83,"神經外科":272,"骨科":17},"minActual":3,"maxActual":49,"minCalendar":17,"maxCalendar":726},{"id":"16565","name":"黃予婕","role":"流動","hireDate":"2023-08-07","count":1,"deptsDone":{"泌尿科":9},"deptsCalendar":{"泌尿科":386},"minActual":9,"maxActual":9,"minCalendar":386,"maxCalendar":386},{"id":"16565","name":"黃予婕","role":"刷手","hireDate":"2023-08-07","count":12,"deptsDone":{"一般外科":23,"乳房外科":12,"小兒外科":7,"心臟血管外科":6,"整型外科":12,"泌尿科":9,"牙醫部":6,"直腸外科":8,"眼科":5,"神經外科":5,"耳鼻喉科":27,"骨科":18},"deptsCalendar":{"一般外科":108,"乳房外科":148,"小兒外科":617,"心臟血管外科":176,"整型外科":115,"泌尿科":46,"牙醫部":284,"直腸外科":56,"眼科":111,"神經外科":10,"耳鼻喉科":482,"骨科":64},"minActual":5,"maxActual":27,"minCalendar":10,"maxCalendar":617},{"id":"16587","name":"黃沂晨","role":"流動","hireDate":"2023-08-21","count":2,"deptsDone":{"泌尿科":1,"骨科":8},"deptsCalendar":{"泌尿科":1,"骨科":125},"minActual":1,"maxActual":8,"minCalendar":1,"maxCalendar":125},{"id":"16587","name":"黃沂晨","role":"刷手","hireDate":"2023-08-21","count":11,"deptsDone":{"一般外科":14,"乳房外科":25,"心臟血管外科":7,"整型外科":11,"泌尿科":4,"牙醫部":1,"直腸外科":6,"眼科":3,"耳鼻喉科":17,"胸腔外科":16,"骨科":21},"deptsCalendar":{"一般外科":121,"乳房外科":589,"心臟血管外科":208,"整型外科":141,"泌尿科":43,"牙醫部":1,"直腸外科":82,"眼科":6,"耳鼻喉科":137,"胸腔外科":272,"骨科":191},"minActual":1,"maxActual":25,"minCalendar":1,"maxCalendar":589},{"id":"16601","name":"吳婉菁","role":"流動","hireDate":"2023-09-04","count":3,"deptsDone":{"泌尿科":24,"神經外科":6,"骨科":4},"deptsCalendar":{"泌尿科":299,"神經外科":111,"骨科":4},"minActual":4,"maxActual":24,"minCalendar":4,"maxCalendar":299},{"id":"16601","name":"吳婉菁","role":"刷手","hireDate":"2023-09-04","count":12,"deptsDone":{"一般外科":31,"乳房外科":8,"心臟血管外科":5,"整型外科":6,"泌尿科":6,"牙醫部":2,"直腸外科":5,"眼科":16,"神經外科":30,"耳鼻喉科":12,"胸腔外科":22,"骨科":28},"deptsCalendar":{"一般外科":98,"乳房外科":106,"心臟血管外科":254,"整型外科":52,"泌尿科":8,"牙醫部":438,"直腸外科":36,"眼科":217,"神經外科":120,"耳鼻喉科":250,"胸腔外科":332,"骨科":187},"minActual":2,"maxActual":31,"minCalendar":8,"maxCalendar":438},{"id":"16650","name":"劉祐呈","role":"流動","hireDate":"2023-10-16","count":1,"deptsDone":{"泌尿科":7},"deptsCalendar":{"泌尿科":254},"minActual":7,"maxActual":7,"minCalendar":254,"maxCalendar":254},{"id":"16650","name":"劉祐呈","role":"刷手","hireDate":"2023-10-16","count":11,"deptsDone":{"一般外科":17,"乳房外科":26,"心臟血管外科":14,"整型外科":9,"泌尿科":15,"直腸外科":15,"眼科":8,"神經外科":54,"耳鼻喉科":28,"胸腔外科":24,"骨科":18},"deptsCalendar":{"一般外科":225,"乳房外科":582,"心臟血管外科":157,"整型外科":208,"泌尿科":272,"直腸外科":350,"眼科":18,"神經外科":365,"耳鼻喉科":211,"胸腔外科":513,"骨科":48},"minActual":8,"maxActual":54,"minCalendar":18,"maxCalendar":582},{"id":"16704","name":"江嘉琪","role":"流動","hireDate":"2024-01-02","count":1,"deptsDone":{"泌尿科":4},"deptsCalendar":{"泌尿科":267},"minActual":4,"maxActual":4,"minCalendar":267,"maxCalendar":267},{"id":"16704","name":"江嘉琪","role":"刷手","hireDate":"2024-01-02","count":12,"deptsDone":{"一般外科":36,"乳房外科":8,"心臟血管外科":9,"整型外科":38,"泌尿科":7,"牙醫部":2,"直腸外科":28,"眼科":12,"神經外科":40,"耳鼻喉科":7,"胸腔外科":18,"骨科":29},"deptsCalendar":{"一般外科":294,"乳房外科":246,"心臟血管外科":439,"整型外科":552,"泌尿科":121,"牙醫部":66,"直腸外科":502,"眼科":20,"神經外科":806,"耳鼻喉科":99,"胸腔外科":315,"骨科":54},"minActual":2,"maxActual":40,"minCalendar":20,"maxCalendar":806},{"id":"16900","name":"李宜諮","role":"刷手","hireDate":"2024-08-05","count":10,"deptsDone":{"一般外科":22,"乳房外科":8,"心臟血管外科":9,"整型外科":7,"泌尿科":5,"直腸外科":19,"眼科":7,"耳鼻喉科":24,"胸腔外科":20,"骨科":37},"deptsCalendar":{"一般外科":312,"乳房外科":260,"心臟血管外科":442,"整型外科":155,"泌尿科":8,"直腸外科":256,"眼科":14,"耳鼻喉科":425,"胸腔外科":217,"骨科":241},"minActual":5,"maxActual":37,"minCalendar":8,"maxCalendar":442},{"id":"16926","name":"何尚謙","role":"刷手","hireDate":"2024-08-19","count":9,"deptsDone":{"一般外科":14,"乳房外科":10,"心臟血管外科":9,"整型外科":14,"泌尿科":7,"直腸外科":12,"眼科":14,"神經外科":19,"骨科":14},"deptsCalendar":{"一般外科":140,"乳房外科":128,"心臟血管外科":264,"整型外科":170,"泌尿科":14,"直腸外科":172,"眼科":23,"神經外科":233,"骨科":55},"minActual":7,"maxActual":19,"minCalendar":14,"maxCalendar":264},{"id":"16946","name":"陳明瑄","role":"刷手","hireDate":"2024-09-02","count":8,"deptsDone":{"一般外科":67,"心臟血管外科":5,"整型外科":16,"泌尿科":8,"直腸外科":8,"眼科":4,"耳鼻喉科":14,"骨科":52},"deptsCalendar":{"一般外科":416,"心臟血管外科":108,"整型外科":207,"泌尿科":62,"直腸外科":272,"眼科":39,"耳鼻喉科":123,"骨科":85},"minActual":4,"maxActual":67,"minCalendar":39,"maxCalendar":416},{"id":"16947","name":"簡晏欣","role":"刷手","hireDate":"2024-09-02","count":12,"deptsDone":{"一般外科":42,"乳房外科":8,"心臟血管外科":12,"整型外科":30,"泌尿科":22,"牙醫部":4,"直腸外科":4,"眼科":9,"神經外科":11,"耳鼻喉科":17,"胸腔外科":24,"骨科":40},"deptsCalendar":{"一般外科":161,"乳房外科":43,"心臟血管外科":42,"整型外科":408,"泌尿科":254,"牙醫部":389,"直腸外科":18,"眼科":16,"神經外科":282,"耳鼻喉科":214,"胸腔外科":309,"骨科":269},"minActual":4,"maxActual":42,"minCalendar":16,"maxCalendar":408},{"id":"16948","name":"黃佩琪","role":"刷手","hireDate":"2024-09-02","count":11,"deptsDone":{"一般外科":50,"乳房外科":28,"心臟血管外科":6,"整型外科":12,"泌尿科":25,"直腸外科":12,"眼科":5,"神經外科":16,"耳鼻喉科":10,"胸腔外科":9,"骨科":23},"deptsCalendar":{"一般外科":161,"乳房外科":396,"心臟血管外科":323,"整型外科":95,"泌尿科":107,"直腸外科":95,"眼科":7,"神經外科":532,"耳鼻喉科":31,"胸腔外科":114,"骨科":182},"minActual":5,"maxActual":50,"minCalendar":7,"maxCalendar":532},{"id":"16949","name":"陳筠心","role":"刷手","hireDate":"2024-09-02","count":11,"deptsDone":{"一般外科":45,"乳房外科":15,"口腔外科":6,"心臟血管外科":7,"整型外科":17,"泌尿科":8,"牙醫部":5,"直腸外科":25,"眼科":6,"耳鼻喉科":18,"骨科":38},"deptsCalendar":{"一般外科":278,"乳房外科":484,"口腔外科":36,"心臟血管外科":285,"整型外科":172,"泌尿科":104,"牙醫部":144,"直腸外科":335,"眼科":9,"耳鼻喉科":207,"骨科":350},"minActual":5,"maxActual":45,"minCalendar":9,"maxCalendar":484},{"id":"17073","name":"張芸甄","role":"刷手","hireDate":"2024-12-23","count":7,"deptsDone":{"一般外科":6,"乳房外科":9,"整型外科":13,"泌尿科":14,"直腸外科":31,"眼科":9,"骨科":30},"deptsCalendar":{"一般外科":95,"乳房外科":57,"整型外科":252,"泌尿科":221,"直腸外科":365,"眼科":14,"骨科":158},"minActual":6,"maxActual":31,"minCalendar":14,"maxCalendar":365},{"id":"17149","name":"余宗芸","role":"刷手","hireDate":"2025-04-07","count":6,"deptsDone":{"一般外科":47,"整型外科":8,"泌尿科":4,"眼科":9,"神經外科":14,"骨科":13},"deptsCalendar":{"一般外科":355,"整型外科":116,"泌尿科":29,"眼科":14,"神經外科":43,"骨科":95},"minActual":4,"maxActual":47,"minCalendar":14,"maxCalendar":355},{"id":"17212","name":"陳玥汝","role":"刷手","hireDate":"2025-07-21","count":7,"deptsDone":{"一般外科":18,"心臟血管外科":36,"整型外科":3,"泌尿科":3,"眼科":7,"神經外科":12,"骨科":50},"deptsCalendar":{"一般外科":75,"心臟血管外科":236,"整型外科":47,"泌尿科":50,"眼科":9,"神經外科":48,"骨科":213},"minActual":3,"maxActual":50,"minCalendar":9,"maxCalendar":236},{"id":"17223","name":"鄒昀珊","role":"刷手","hireDate":"2025-08-11","count":3,"deptsDone":{"泌尿科":13,"眼科":4,"骨科":19},"deptsCalendar":{"泌尿科":57,"眼科":6,"骨科":124},"minActual":4,"maxActual":19,"minCalendar":6,"maxCalendar":124},{"id":"17307","name":"蕭睬容","role":"刷手","hireDate":"2025-10-07","count":5,"deptsDone":{"一般外科":36,"泌尿科":17,"直腸外科":23,"眼科":5,"骨科":21},"deptsCalendar":{"一般外科":221,"泌尿科":134,"直腸外科":189,"眼科":8,"骨科":114},"minActual":5,"maxActual":36,"minCalendar":8,"maxCalendar":221},{"id":"15491","name":"朱庭宜","role":"流動","hireDate":"2019-05-06","count":5,"deptsDone":{"乳房外科":15,"心臟血管外科":11,"整型外科":14,"眼科":23,"骨科":7},"deptsCalendar":{"乳房外科":226,"心臟血管外科":91,"整型外科":120,"眼科":125,"骨科":67},"minActual":7,"maxActual":23,"minCalendar":67,"maxCalendar":226},{"id":"15491","name":"朱庭宜","role":"刷手","hireDate":"2019-05-06","count":2,"deptsDone":{"一般外科":9,"眼科":18},"deptsCalendar":{"一般外科":69,"眼科":184},"minActual":9,"maxActual":18,"minCalendar":69,"maxCalendar":184}],"depts":["一般外科","乳房外科","口腔外科","婦產科","小兒外科","心臟血管外科","整型外科","泌尿科","牙醫部","直腸外科","眼科","神經外科","耳鼻喉科","胸腔外科","骨科"]};
+var MDEPTS=MGR.depts;
+var MDS=MGR.deptStats;
+var MNS=MGR.nurseSummary;
+var mdR='流動',mhR='刷手';
+
+function mdc(d){return d<=5?'#14532D':d<=10?'#15803D':d<=15?'#16A34A':d<=20?'#4ADE80':'#86EFAC';}
+
+window.openMgr=function(){
+  document.getElementById('mgr-modal').style.display='block';
+  document.body.style.overflow='hidden';
+  mRenderDept();
+};
+window.closeMgr=function(){
+  document.getElementById('mgr-modal').style.display='none';
+  document.body.style.overflow='';
+};
+
+// Tabs
+document.getElementById('mgr-tabs').addEventListener('click',function(e){
+  var btn=e.target.closest('[data-mtab]');
+  if(!btn)return;
+  var t=btn.getAttribute('data-mtab');
+  document.querySelectorAll('[data-mtab]').forEach(function(b){
+    b.style.background=b.getAttribute('data-mtab')===t?'#1E3A8A':'#fff';
+    b.style.color=b.getAttribute('data-mtab')===t?'#fff':'#6B7280';
+    b.style.border=b.getAttribute('data-mtab')===t?'none':'1px solid #E5E7EB';
+  });
+  ['dept','nurse','heat'].forEach(function(id){
+    document.getElementById('mgr-tab-'+id).style.display=id===t?'block':'none';
+  });
+  if(t==='dept')mRenderDept();
+  if(t==='nurse')mRenderNurse();
+  if(t==='heat')mRenderHeat();
+});
+
+// Dept role
+document.getElementById('mgr-d-circ').addEventListener('click',function(){mdR='流動';this.style.background='#2563EB';this.style.color='#fff';this.style.border='none';var s=document.getElementById('mgr-d-scrub');s.style.background='#fff';s.style.color='#6B7280';s.style.border='1px solid #E5E7EB';mRenderDept();});
+document.getElementById('mgr-d-scrub').addEventListener('click',function(){mdR='刷手';this.style.background='#2563EB';this.style.color='#fff';this.style.border='none';var s=document.getElementById('mgr-d-circ');s.style.background='#fff';s.style.color='#6B7280';s.style.border='1px solid #E5E7EB';mRenderDept();});
+document.getElementById('mgr-h-circ').addEventListener('click',function(){mhR='流動';this.style.background='#2563EB';this.style.color='#fff';this.style.border='none';var s=document.getElementById('mgr-h-scrub');s.style.background='#fff';s.style.color='#6B7280';s.style.border='1px solid #E5E7EB';mRenderHeat();});
+document.getElementById('mgr-h-scrub').addEventListener('click',function(){mhR='刷手';this.style.background='#2563EB';this.style.color='#fff';this.style.border='none';var s=document.getElementById('mgr-h-circ');s.style.background='#fff';s.style.color='#6B7280';s.style.border='1px solid #E5E7EB';mRenderHeat();});
+
+// Nurse filters
+document.getElementById('mgr-n-role').addEventListener('change',mRenderNurse);
+document.getElementById('mgr-n-search').addEventListener('input',mRenderNurse);
+document.getElementById('mgr-n-sort').addEventListener('change',mRenderNurse);
+
+// Tooltip
+document.getElementById('mgr-modal').addEventListener('mousemove',function(e){
+  var el=e.target.closest('[data-tt]');
+  if(el){var t=document.getElementById('mgr-tt');t.textContent=el.getAttribute('data-tt');t.style.display='block';t.style.left=Math.min(e.clientX+14,window.innerWidth-240)+'px';t.style.top=(e.clientY-50)+'px';}
+});
+document.getElementById('mgr-modal').addEventListener('mouseout',function(e){if(!e.target.closest('[data-tt]'))document.getElementById('mgr-tt').style.display='none';});
+
+function mRenderDept(){
+  var rows=MDEPTS.map(function(dept){var s=MDS[dept]&&MDS[dept][mdR];return s?Object.assign({dept:dept},s):null;}).filter(Boolean).sort(function(a,b){return a.actual_median-b.actual_median;});
+  var maxA=Math.max.apply(null,rows.map(function(r){return r.actual_median;}));
+  document.getElementById('mgr-dept-tbody').innerHTML=rows.map(function(r){
+    var col=mdc(r.actual_median);
+    return '<tr style="border-bottom:1px solid #F3F4F6">'
+      +'<td style="padding:8px 10px;font-weight:600">'+r.dept+'</td>'
+      +'<td style="padding:8px 10px"><span style="font-size:18px;font-weight:800;color:'+col+'">'+r.actual_median+'</span><span style="font-size:11px;color:#9CA3AF"> 天</span></td>'
+      +'<td style="padding:8px 10px;font-weight:700;color:#15803D">'+r.actual_min+' 天</td>'
+      +'<td style="padding:8px 10px;color:#9CA3AF">'+r.actual_max+' 天</td>'
+      +'<td style="padding:8px 10px;color:#6B7280">'+r.calendar_median+' 天</td>'
+      +'<td style="padding:8px 10px"><span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:#F3F4F6;color:#374151">'+r.count+' 人</span></td>'
+      +'<td style="padding:8px 10px;min-width:130px"><div style="height:8px;border-radius:99px;background:#F3F4F6"><div style="height:8px;border-radius:99px;background:'+col+';width:'+Math.round(r.actual_median/maxA*100)+'%"></div></div>'
+      +'<div style="font-size:10px;color:#9CA3AF;margin-top:2px">最快'+r.actual_min+'天 最慢'+r.actual_max+'天</div></td>'
+    +'</tr>';
+  }).join('');
+}
+
+function mRenderNurse(){
+  var role=document.getElementById('mgr-n-role').value;
+  var srch=document.getElementById('mgr-n-search').value;
+  var srt=document.getElementById('mgr-n-sort').value;
+  var rows=MNS.filter(function(n){return n.role===role&&n.name.indexOf(srch)>=0;});
+  if(srt==='count')rows.sort(function(a,b){return b.count-a.count;});
+  else if(srt==='fast')rows.sort(function(a,b){return a.minActual-b.minActual;});
+  else rows.sort(function(a,b){return (b.hireDate||'').localeCompare(a.hireDate||'');});
+  document.getElementById('mgr-nurse-tbody').innerHTML=rows.map(function(n,i){
+    var pct=Math.round(n.count/MDEPTS.length*100);
+    var pCol=pct>=80?'#16A34A':pct>=50?'#D97706':'#EF4444';
+    var cells=MDEPTS.map(function(dept){
+      var days=n.deptsDone[dept];
+      var cal=n.deptsCalendar&&n.deptsCalendar[dept];
+      if(!days)return '<div style="width:24px;height:24px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;background:#F3F4F6;color:#D1D5DB;margin:1px" data-tt="'+dept+'&#10;尚未達標">—</div>';
+      var col=mdc(days);
+      var tc=days<=15?'#fff':'#166534';
+      return '<div style="width:24px;height:24px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;background:'+col+';color:'+tc+';margin:1px" data-tt="'+dept+'&#10;密集'+days+'天&#10;日曆'+( cal||'-')+'天">'+days+'</div>';
+    }).join('');
+    return '<tr style="border-bottom:1px solid #F3F4F6">'
+      +'<td style="padding:8px 10px;font-size:12px;color:#9CA3AF">'+(i+1)+'</td>'
+      +'<td style="padding:8px 10px;font-weight:600">'+n.name+'</td>'
+      +'<td style="padding:8px 10px;font-size:12px;color:#6B7280">'+n.hireDate+'</td>'
+      +'<td style="padding:8px 10px"><div style="display:flex;align-items:center;gap:6px">'
+        +'<span style="font-size:16px;font-weight:700;color:'+pCol+'">'+n.count+'</span>'
+        +'<span style="font-size:11px;color:#9CA3AF">/ '+MDEPTS.length+'</span>'
+        +'<div style="width:36px;height:5px;border-radius:99px;background:#F3F4F6"><div style="height:5px;border-radius:99px;background:'+pCol+';width:'+pct+'%"></div></div>'
+      +'</div></td>'
+      +'<td style="padding:8px 10px;font-weight:700;color:#15803D">'+n.minActual+' 天</td>'
+      +'<td style="padding:8px 10px;color:#6B7280">'+n.maxActual+' 天</td>'
+      +'<td style="padding:8px 10px"><div style="display:flex;flex-wrap:wrap;gap:1px">'+cells+'</div></td>'
+    +'</tr>';
+  }).join('');
+}
+
+function mRenderHeat(){
+  var rows=MNS.filter(function(n){return n.role===mhR;}).sort(function(a,b){return b.count-a.count;});
+  var hdr='<div style="display:flex;gap:2px;margin-bottom:4px;padding-left:92px">'
+    +MDEPTS.map(function(d){return '<div style="width:24px;font-size:8px;color:#6B7280;text-align:center;writing-mode:vertical-rl;transform:rotate(180deg);height:64px;line-height:24px">'+d+'</div>';}).join('')+'</div>';
+  var body=rows.map(function(n){
+    var pct=Math.round(n.count/MDEPTS.length*100);
+    var pCol=pct>=80?'#16A34A':pct>=50?'#D97706':'#EF4444';
+    var cells=MDEPTS.map(function(dept){
+      var days=n.deptsDone[dept];
+      var cal=n.deptsCalendar&&n.deptsCalendar[dept];
+      if(!days)return '<div style="width:24px;height:24px;border-radius:4px;flex-shrink:0;background:#F3F4F6" data-tt="'+n.name+'&#10;'+dept+'&#10;尚未達標"></div>';
+      var col=mdc(days);
+      var tc=days<=15?'#fff':'#166534';
+      return '<div style="width:24px;height:24px;border-radius:4px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;background:'+col+';color:'+tc+'" data-tt="'+n.name+'&#10;'+dept+'&#10;密集'+days+'天&#10;日曆'+(cal||'-')+'天">'+days+'</div>';
+    }).join('');
+    return '<div style="display:flex;align-items:center;gap:2px;margin-bottom:2px">'
+      +'<div style="width:88px;font-size:12px;text-align:right;padding-right:6px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+n.name+'">'+n.name+'</div>'
+      +cells
+      +'<span style="margin-left:6px;font-size:10px;font-weight:700;color:'+pCol+'">'+n.count+'/'+MDEPTS.length+'</span>'
+    +'</div>';
+  }).join('');
+  document.getElementById('mgr-heat-wrap').innerHTML=hdr+body;
+}
+})();
+</script>
+
 </body>
 </html>
