@@ -120,6 +120,7 @@ tr{border-bottom:1px solid #F3F4F6;}td{padding:9px 10px;}
 #loading-screen{position:fixed;inset:0;background:#1E3A8A;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#fff;}
 @media(max-width:600px){.hide-m{display:none;}}
 </style>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -244,10 +245,11 @@ function parseORData(text){
 async function handleORFile(file){
   const pr=document.getElementById("import-progress");
   if(pr)pr.style.display="block";
-  const reader=new FileReader();
-  reader.onload=async function(e){
-    if(pr)document.getElementById("pfill").style.width="50%";
-    const res=parseORData(e.target.result);
+  const isExcel=/\.(xls|xlsx)$/i.test(file.name);
+
+  function processText(text){
+    if(pr)document.getElementById("pfill").style.width="80%";
+    const res=parseORData(text);
     if(pr)document.getElementById("pfill").style.width="100%";
     setTimeout(async()=>{
       if(pr)pr.style.display="none";
@@ -259,8 +261,31 @@ async function handleORFile(file){
         toast(`成功匯入 ${res.parsed.toLocaleString()} 筆手術紀錄`);
       } else toast("匯入失敗："+res.msg,false);
     },300);
-  };
-  reader.readAsText(file,"UTF-8");
+  }
+
+  if(isExcel){
+    // 使用 SheetJS 解析 XLS/XLSX
+    const reader=new FileReader();
+    reader.onload=function(e){
+      if(pr)document.getElementById("pfill").style.width="40%";
+      try{
+        const wb=XLSX.read(e.target.result,{type:"array"});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        // 轉成 TSV 格式讓 parseORData 處理
+        const tsv=XLSX.utils.sheet_to_csv(ws,{FS:"\t"});
+        processText(tsv);
+      } catch(err){
+        if(pr)pr.style.display="none";
+        toast("XLS 解析失敗："+err.message,false);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    // CSV / TSV
+    const reader=new FileReader();
+    reader.onload=function(e){processText(e.target.result);};
+    reader.readAsText(file,"UTF-8");
+  }
 }
 
 // ── 主畫面 ───────────────────────────────────────────────
@@ -338,12 +363,12 @@ function render(){
 
     <div class="card" style="padding:18px 20px">
       <div style="font-size:14px;font-weight:700;margin-bottom:4px">📂 手術資料匯入</div>
-      <div style="font-size:12px;color:#6B7280;margin-bottom:14px">支援 CSV / TSV（需含：科別名稱、主手術名稱、流動護士、刷手護士欄位）</div>
+      <div style="font-size:12px;color:#6B7280;margin-bottom:14px">支援 XLS / XLSX / CSV / TSV（需含：科別名稱、主手術名稱、流動護士、刷手護士欄位）</div>
       <label class="drop-zone" id="drop-zone" for="or-file-input">
-        <input type="file" id="or-file-input" accept=".csv,.tsv,.txt" onchange="handleORFile(this.files[0])">
+        <input type="file" id="or-file-input" accept=".csv,.tsv,.txt,.xls,.xlsx" onchange="handleORFile(this.files[0])">
         <div style="font-size:28px;margin-bottom:8px">📤</div>
         <div style="font-size:14px;font-weight:600;color:#374151">拖曳檔案至此，或點擊選取</div>
-        <div style="font-size:12px;color:#9CA3AF;margin-top:4px">每次匯入資料將累積至統計中</div>
+        <div style="font-size:12px;color:#9CA3AF;margin-top:4px">XLS / XLSX / CSV / TSV · 每次匯入資料將累積至統計中</div>
       </label>
       <div class="progress-bar" id="import-progress" style="display:none;margin-top:10px"><div class="progress-fill" id="pfill"></div></div>
       <div style="margin-top:14px;border-top:1px solid #F3F4F6;padding-top:12px">
