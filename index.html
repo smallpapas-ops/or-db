@@ -218,7 +218,8 @@ function parseORData(text){
   for(let i=0;i<Math.min(5,lines.length);i++){if(lines[i].includes("科別名稱")||lines[i].includes("主手術名稱")){hIdx=i;break;}}
   const headers=lines[hIdx].split(sep).map(h=>h.trim().replace(/"/g,""));
   const iD=headers.indexOf("科別名稱"),iP=headers.indexOf("主手術名稱");
-  const iC=headers.indexOf("流動護士"),iS=headers.indexOf("刷手護士");
+  const iC=headers.indexOf("流動護士"),iS=headers.indexOf("刷手護士"),iDt=headers.indexOf("手術日期");
+  let minD="",maxD="";
   if(iD<0||iP<0||(iC<0&&iS<0))return{ok:false,msg:"找不到必要欄位"};
   function pN(cell){if(!cell)return[];return cell.replace(/"/g,"").split(",").map(p=>{p=p.trim();if(p.includes("-"))return p.split("-")[0].trim();return null;}).filter(Boolean);}
   let parsed=0;
@@ -226,6 +227,7 @@ function parseORData(text){
     const cols=lines[i].split(sep);
     const dept=(cols[iD]||"").replace(/"/g,"").trim(),proc=(cols[iP]||"").replace(/"/g,"").trim();
     if(!dept&&!proc)continue;
+    if(iDt>=0){var ds=(cols[iDt]||"").replace(/[^0-9]/g,"");if(ds.length===7){var ad=(parseInt(ds.slice(0,3),10)+1911)+"-"+ds.slice(3,5)+"-"+ds.slice(5,7);if(!minD||ad<minD)minD=ad;if(!maxD||ad>maxD)maxD=ad;}}
     // 注意：匯入的手術資料只更新 SUMMARY_DB（in-memory），不存 Firebase（太大）
     [[iC,"流動"],[iS,"刷手"]].forEach(([idx,role])=>{
       if(idx<0)return;
@@ -239,7 +241,7 @@ function parseORData(text){
       });
     });
   }
-  return{ok:true,parsed};
+  return{ok:true,parsed,minD,maxD};
 }
 
 async function handleORFile(file){
@@ -254,7 +256,7 @@ async function handleORFile(file){
     setTimeout(async()=>{
       if(pr)pr.style.display="none";
       if(res.ok){
-        const newLog=[{filename:file.name,rows:res.parsed,date:new Date().toLocaleDateString("zh-TW")},...importLog];
+        const newLog=[{filename:file.name,rows:res.parsed,minD:res.minD,maxD:res.maxD,date:new Date().toLocaleDateString("zh-TW")},...importLog];
         setSyncDot("saving");
         await window.saveImportLog(newLog);
         setSyncDot("ok");
@@ -316,14 +318,17 @@ function render(){
     </tr>`;
   }).join("");
 
-  const logHtml=importLog.length===0
-    ?`<p style="font-size:12px;color:#9CA3AF;text-align:center;padding:6px 0">尚未匯入任何手術資料</p>`
-    :importLog.map(l=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #F3F4F6">
+  const BUILTIN=[{filename:"113年（內建）",rows:14575,minD:"2024-01-01",maxD:"2024-12-31",date:"內建"},{filename:"114年（內建）",rows:15461,minD:"2025-01-01",maxD:"2025-12-31",date:"內建"},{filename:"115年（內建）",rows:6309,minD:"2026-01-01",maxD:"2026-05-31",date:"內建"}];
+  const allLog=BUILTIN.concat(importLog);
+  let gMin="",gMax="";allLog.forEach(l=>{if(l.minD&&(!gMin||l.minD<gMin))gMin=l.minD;if(l.maxD&&(!gMax||l.maxD>gMax))gMax=l.maxD;});
+  const ym=d=>d?d.slice(0,4)+"/"+d.slice(5,7):"?";
+  const rangeBanner=`<div style="background:#EFF6FF;border:1.5px solid #93C5FD;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:14px;color:#1E3A8A;font-weight:700">📅 資料涵蓋期間：${ym(gMin)} ～ ${ym(gMax)}<span style="font-weight:400;font-size:12px;color:#475569">（最新手術日 ${gMax||"-"}）</span></div>`;
+  const logHtml=rangeBanner+`<details style="margin-top:2px"><summary style="cursor:pointer;font-size:13px;font-weight:600;color:#2563EB;padding:6px 2px">▾ 展開匯入明細（${allLog.length} 個檔案）</summary>`+allLog.map(l=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #F3F4F6">
         <span style="font-size:18px">📄</span>
         <div style="flex:1"><div style="font-size:13px;font-weight:600">${l.filename}</div>
-        <div style="font-size:11px;color:#6B7280">${l.date}・${l.rows.toLocaleString()} 筆</div></div>
+        <div style="font-size:11px;color:#6B7280">${l.minD?ym(l.minD)+" ～ "+ym(l.maxD)+"・":""}${l.date}・${l.rows.toLocaleString()} 筆</div></div>
         <span class="badge" style="background:#DCFCE7;color:#15803D">✓ 已匯入</span>
-      </div>`).join("");
+      </div>`).join("")+`</details>`;
 
   // 若 app 已初始化，只更新表格部分，不重建整個頁面
   if(document.getElementById("staff-tbody")){
@@ -355,7 +360,7 @@ function render(){
         <div style="width:52px;height:52px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">📊</div>
         <div style="flex:1">
           <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:3px">主管訓練分析總覽</div>
-          <div style="font-size:12px;color:#BFDBFE;line-height:1.6">各科獨立天數 ・ 個人訓練進度 ・ 熱力圖 ・ 資料來源 36,345 筆</div>
+          <div style="font-size:12px;color:#BFDBFE;line-height:1.6">各科獨立天數 ・ 個人訓練進度 ・ 熱力圖 ・ 資料 2024/01～2026/05（36,345 筆）</div>
         </div>
         <div style="color:#93C5FD;font-size:18px;flex-shrink:0">→</div>
       </div>
@@ -663,7 +668,7 @@ let p=0;const li=setInterval(()=>{p=Math.min(p+Math.random()*15,85);document.get
     <div style="background:linear-gradient(135deg,#1E3A8A,#2563EB);padding:14px 22px;display:flex;align-items:center;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,.15)">
       <div>
         <div style="font-size:15px;font-weight:700;color:#fff">📊 主管訓練分析總覽</div>
-        <div style="font-size:11px;color:#93C5FD;margin-top:1px">資料來源：113年1月 + 114年1月 + 115年1月（共 36,345 筆）</div>
+        <div style="font-size:11px;color:#93C5FD;margin-top:1px">資料期間：2024/01 ～ 2026/05（113年全年 + 114年全年 + 115年1–5月，共 36,345 筆）</div>
       </div>
       <button onclick="closeMgr()" style="margin-left:auto;background:rgba(255,255,255,.15);border:none;border-radius:7px;padding:6px 14px;color:#fff;font-size:13px;cursor:pointer">✕ 關閉</button>
     </div>
