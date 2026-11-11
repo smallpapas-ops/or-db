@@ -56,6 +56,19 @@ window.saveStaff = async (list) => {
 window.saveBenchDB = async (data) => {
   await setDoc(doc(db,"or_db","benchmark"), { data });
 };
+window.listenDavinci = (cb) => {
+  return onSnapshot(doc(db,"or_db","davinci"), snap => { const d = snap.data(); if(d) cb(d); });
+};
+const dvApp = initializeApp({apiKey:"AIzaSyAtTdxUufXi76EbRDqpyvW2sR3pWB41HU0",authDomain:"davinci-management.firebaseapp.com",projectId:"davinci-management",storageBucket:"davinci-management.firebasestorage.app",messagingSenderId:"341548360212",appId:"1:341548360212:web:5d724d43f517ceacc2bd01"},"davinci");
+const dvDb = getFirestore(dvApp);
+window.listenDvRecords = (cb, err) => onSnapshot(collection(dvDb,"records"), snap => cb(snap.docs.map(d=>d.data())), e=>err&&err(e));
+window.listenDvHidden = (cb) => onSnapshot(doc(db,"or_db","dvHidden"), snap => { const d = snap.data(); cb((d&&d.list)||[]); });
+window.saveDvHidden = async (list) => { await setDoc(doc(db,"or_db","dvHidden"), { list }); };
+window.listenDvTrainee = (cb) => onSnapshot(doc(db,"or_db","dvTrainee"), snap => { cb(snap.data()||{}); });
+window.saveDvTrainee = async (map) => { await setDoc(doc(db,"or_db","dvTrainee"), { map }); };
+window.saveDavinci = async (data) => {
+  await setDoc(doc(db,"or_db","davinci"), data);
+};
 window.saveImportLog = async (list) => {
   await setDoc(doc(db,"or_db","importLog"), { list });
 };
@@ -216,6 +229,10 @@ function startListeners(){
     Object.keys(data||{}).forEach(d=>{m[d]=m[d]||{};Object.keys(data[d]||{}).forEach(r=>{m[d][r]=data[d][r];});});
     bench=m; render(); });
   window.listenImportLog(list=>{ importLog=list; render(); });
+  if(window.listenDavinci)window.listenDavinci(d=>{ if(window.dvSet&&!window.__dvLive)window.dvSet(d); });
+  if(window.listenDvHidden)window.listenDvHidden(l=>{ if(window.dvHid)window.dvHid(l); });
+  if(window.listenDvTrainee)window.listenDvTrainee(l=>{ if(window.dvTr)window.dvTr(l); });
+  if(window.listenDvRecords)window.listenDvRecords(r=>{ if(window.dvLive)window.dvLive(r); }, e=>console.error('達文西即時連線失敗',e));
 }
 
 // ── 手術資料解析 ─────────────────────────────────────────
@@ -355,6 +372,7 @@ function render(){
     <span style="font-size:16px;font-weight:700;color:#fff">🏥 手術室人才技能資料庫</span>
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
       <a href="#" onclick="openMgr();return false;" style="font-size:12px;color:#fff;text-decoration:none;padding:6px 14px;background:#2563EB;border:1.5px solid #60A5FA;border-radius:7px;white-space:nowrap;font-weight:600">📊 主管總覽</a>
+      <a href="#" onclick="openDv();return false;" style="font-size:12px;color:#fff;text-decoration:none;padding:6px 14px;background:#7C3AED;border:1.5px solid #C4B5FD;border-radius:7px;white-space:nowrap;font-weight:600">🤖 達文西訓練</a>
       <span id="sync-dot" class="sync-dot ok"></span>
       <span style="font-size:12px;color:#BFDBFE">${staff.length} 位人員</span>
     </div>
@@ -940,5 +958,116 @@ function mRenderHeat(){
 })();
 </script>
 
+
+<script>
+(function(){
+var DV={list:[],meta:null},open=false,sel=null,sortBy="total";
+var CSS='#dv-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:210;overflow-y:auto}#dv-modal .dvw{background:#F5F3FF;min-height:100vh}#dv-modal table{width:100%;border-collapse:collapse;font-size:13px}#dv-modal th{background:#EDE9FE;color:#5B21B6;font-size:11px;text-align:left;padding:8px 10px;position:sticky;top:0}#dv-modal td{padding:8px 10px;border-bottom:1px solid #EDE9FE;background:#fff}#dv-modal tr.dvr{cursor:pointer}#dv-modal tr.dvr:hover td{background:#FAF5FF}.dvc{background:#fff;border-radius:12px;border:1px solid #DDD6FE;padding:12px 16px;flex:1;min-width:130px}.dvb{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700}';
+var st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
+var m=document.createElement('div');m.id='dv-modal';
+m.innerHTML='<div class="dvw"><div style="background:linear-gradient(135deg,#5B21B6,#7C3AED);padding:14px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50;flex-wrap:wrap"><div><div style="font-size:15px;font-weight:700;color:#fff">🤖 達文西訓練人員</div><div id="dv-sub" style="font-size:11px;color:#DDD6FE;margin-top:1px"></div></div><div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input id="dv-q" placeholder="搜尋姓名或員編" style="border:none;border-radius:7px;padding:7px 10px;font-size:13px;width:150px"><select id="dv-sort" style="border:none;border-radius:7px;padding:7px 8px;font-size:12px"><option value="total">依總場次</option><option value="刷手">依刷手場次</option><option value="流動">依流動場次</option><option value="last">依最近跟刀</option></select><label style="background:#fff;color:#5B21B6;border-radius:7px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer">📂 匯入達文西資料<input id="dv-file" type="file" multiple accept=".csv,.xls,.xlsx,.tsv" style="display:none"></label><button onclick="closeDv()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:7px;padding:7px 14px;font-size:12px;cursor:pointer">✕ 關閉</button></div></div><div id="dv-body" style="max-width:1100px;margin:0 auto;padding:16px"></div></div>';
+document.body.appendChild(m);
+function esc(x){return String(x).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function pd(v){v=String(v==null?"":v).trim();var a;
+ if((a=v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/)))return a[1]+"-"+("0"+a[2]).slice(-2)+"-"+("0"+a[3]).slice(-2);
+ if((a=v.match(/^(\d{2,3})[-\/.](\d{1,2})[-\/.](\d{1,2})/)))return(+a[1]+1911)+"-"+("0"+a[2]).slice(-2)+"-"+("0"+a[3]).slice(-2);
+ if((a=v.match(/^(\d{3})(\d{2})(\d{2})$/)))return(+a[1]+1911)+"-"+a[2]+"-"+a[3];
+ if((a=v.match(/^(\d{4})(\d{2})(\d{2})$/)))return a[1]+"-"+a[2]+"-"+a[3];return"";}
+function people(cell){if(cell==null)return[];return String(cell).replace(/"/g,"").split(/[,，、;；\/\n\s]+/).map(function(x){return x.trim()}).filter(Boolean).map(function(t){var a=t.match(/^(\d{3,7})\s*[-－]\s*(.+)$/);return a?{id:a[1],name:a[2].trim()}:{id:"",name:t}})}
+function parseRows(rows){var h=-1,i,j;for(i=0;i<Math.min(12,rows.length);i++){var t=rows[i].join("|");if(/刷手|流動/.test(t)&&/(術式|手術)/.test(t)){h=i;break}}
+ if(h<0)return null;var hd=rows[h].map(function(x){return String(x==null?"":x).trim()});
+ function fc(re){for(var k=0;k<hd.length;k++)if(re.test(hd[k]))return k;return-1}
+ var C={d:fc(/手術日期|日期/),dept:fc(/科別/),proc:fc(/術式|手術名稱/),sc:fc(/刷手/),ci:fc(/流動/),dr:fc(/主刀/)};
+ var out=[];for(i=h+1;i<rows.length;i++){var r=rows[i];if(!r||!r.length)continue;var date=C.d>=0?pd(r[C.d]):"";var proc=C.proc>=0?String(r[C.proc]||"").trim():"",dept=C.dept>=0?String(r[C.dept]||"").trim():"";
+  var ps=[];if(C.sc>=0)people(r[C.sc]).forEach(function(p){ps.push({p:p,role:"刷手"})});if(C.ci>=0)people(r[C.ci]).forEach(function(p){ps.push({p:p,role:"流動"})});
+  if(!ps.length)continue;out.push({date:date,proc:proc,dept:dept,ps:ps})}
+ return{cols:C,rows:out}}
+function aggregate(cases,files){var by={},byName={};(window.staff||staff||[]).forEach(function(x){byName[x.name]=x.id});
+ var min="",max="";
+ var known={};(window.staff||staff||[]).forEach(function(x){known[x.name]=x.id});
+ cases.forEach(function(c){c.ps.forEach(function(q){if(q.p.id)known[q.p.name]=q.p.id})});
+ var kn=Object.keys(known),rs={};
+ var ALIAS={"張嘉琪":"江嘉琪","嬿婕":"辜嬿潔","嬿潔":"辜嬿潔"};
+ function res(p){if(!p.id&&ALIAS[p.name]){p={id:"",name:ALIAS[p.name]}}if(p.id)return p;if(known[p.name])return{id:known[p.name],name:p.name};if(rs[p.name]!==undefined)return rs[p.name]||p;
+  var n=p.name,c=[];if(n.length>=2)kn.forEach(function(k){if(k.length>n.length&&k.length<=n.length+2&&k.slice(-n.length)===n)c.push(k)});
+  rs[p.name]=c.length===1?{id:known[c[0]],name:c[0]}:null;return rs[p.name]||p}
+ cases.forEach(function(c){c.ps.forEach(function(q){q.p=res(q.p)})});
+ cases.forEach(function(c){if(c.date){if(!min||c.date<min)min=c.date;if(!max||c.date>max)max=c.date}
+  c.ps.forEach(function(q){var id=q.p.id||byName[q.p.name]||"",key=(id||q.p.name)+"|"+q.role;
+   var e=by[key]||(by[key]={id:id,name:q.p.name,role:q.role,c:0,first:"",last:"",dept:{},proc:{},mo:{},dp:{}});e.c++;
+   if(c.date){if(!e.first||c.date<e.first)e.first=c.date;if(!e.last||c.date>e.last)e.last=c.date;var ym=c.date.slice(0,7);e.mo[ym]=(e.mo[ym]||0)+1}
+   if(c.dept)e.dept[c.dept]=(e.dept[c.dept]||0)+1;if(c.proc)e.proc[c.proc]=(e.proc[c.proc]||0)+1;if(c.dept&&c.proc){var dd=e.dp[c.dept]||(e.dp[c.dept]={});dd[c.proc]=(dd[c.proc]||0)+1}})});
+ var vol={};cases.forEach(function(c){if(c.dept&&c.proc){var v=vol[c.dept]||(vol[c.dept]={});v[c.proc]=(v[c.proc]||0)+1}});
+ return{list:Object.keys(by).map(function(k){return by[k]}),vol:vol,meta:{cases:cases.length,min:min,max:max,files:files,updated:new Date().toISOString().slice(0,10)}}}
+function merge(){var P={};DV.list.forEach(function(e){var k=(e.id||e.name);var p=P[k]||(P[k]={id:e.id,name:e.name,total:0,first:"",last:"",roles:{},dept:{},proc:{}});
+  p.total+=e.c;p.roles[e.role]=e;if(e.first&&(!p.first||e.first<p.first))p.first=e.first;if(e.last&&(!p.last||e.last>p.last))p.last=e.last;
+  Object.keys(e.dept||{}).forEach(function(d){p.dept[d]=(p.dept[d]||0)+e.dept[d]});Object.keys(e.proc||{}).forEach(function(d){p.proc[d]=(p.proc[d]||0)+e.proc[d]})});
+ return Object.keys(P).map(function(k){return P[k]})}
+function render(){if(!open)return;var q=(document.getElementById("dv-q").value||"").trim();var people_=merge().filter(function(p){return DVH.indexOf(p.id||p.name)<0});
+ var sm={};(typeof staff!=="undefined"?staff:[]).forEach(function(x){sm[x.id]=x});
+ var sn={};(typeof staff!=="undefined"?staff:[]).forEach(function(x){sn[x.name]=x});
+ people_.forEach(function(p){var s=sm[p.id]||sn[p.name];p.staff=s||null;if(s&&!p.id)p.id=s.id});
+ var list=people_.filter(function(p){var _s=DVM[p.id||p.name];if(fT==="標註"?!_s:(fT&&_s!==fT))return false;return!q||p.name.indexOf(q)>=0||(p.id||"").indexOf(q)>=0});
+ var sb=sortBy;list.sort(function(a,b){if(sb==="last")return(b.last||"").localeCompare(a.last||"");if(sb==="total")return b.total-a.total;return((b.roles[sb]||{}).c||0)-((a.roles[sb]||{}).c||0)});
+ var meta=DV.meta;document.getElementById("dv-sub").textContent=meta?("資料期間 "+(meta.min||"?")+" ～ "+(meta.max||"?")+"・共 "+meta.cases.toLocaleString()+" 場・"+(meta.live?"🟢即時連線"+(meta.circ?"":"（系統無流動欄位）"):"更新 "+(meta.updated||""))):"尚未匯入達文西資料";
+ var b=document.getElementById("dv-body");
+ if(!DV.list.length){b.innerHTML='<div class="dvc" style="text-align:center;padding:40px 20px"><div style="font-size:40px">🤖</div><div style="font-size:15px;font-weight:700;margin:8px 0">尚未匯入達文西手術資料</div><div style="font-size:13px;color:#6B7280;line-height:1.8">請到「達文西手術管理系統」→「匯出報表」存成 CSV／Excel，<br>再按右上角「📂 匯入達文西資料」（可一次選多個檔案）。<br>檔案需含欄位：手術日期、科別、術式、刷手護士、流動護士。</div></div>';return}
+ var tot=0,rs={"刷手":0,"流動":0};DV.list.forEach(function(e){if(DVH.indexOf(e.id||e.name)>=0)return;tot+=e.c;rs[e.role]=(rs[e.role]||0)+e.c});
+ var h='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"><div class="dvc"><div style="font-size:11px;color:#7C3AED;font-weight:700">達文西手術場次</div><div style="font-size:24px;font-weight:800">'+(meta?meta.cases.toLocaleString():"")+'</div></div><div class="dvc"><div style="font-size:11px;color:#7C3AED;font-weight:700">跟刀人員</div><div style="font-size:24px;font-weight:800">'+people_.length+' 位</div></div><div class="dvc"><div style="font-size:11px;color:#16A34A;font-weight:700">刷手人次</div><div style="font-size:24px;font-weight:800">'+rs["刷手"].toLocaleString()+'</div></div><div class="dvc"><div style="font-size:11px;color:#2563EB;font-weight:700">流動人次</div><div style="font-size:24px;font-weight:800">'+rs["流動"].toLocaleString()+'</div></div></div>';
+ h+='<div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;font-size:13px"><span style="font-weight:700;color:#5B21B6">篩選</span><select id="dv-fT" style="border:1px solid #DDD6FE;border-radius:8px;padding:3px 6px;font-size:12px">'+[["","全部"],["標註","已標註（"+Object.keys(DVM).length+"）"],["訓練中","🎓 訓練中（"+cnt("訓練中")+"）"],["完訓","✅ 完訓（"+cnt("完訓")+"）"],["獨立","🏅 獨立（"+cnt("獨立")+"）"]].map(function(o){return'<option value="'+o[0]+'"'+(fT===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join("")+'</select><span style="margin-left:8px;color:#6B7280">獨立標準：術式佔該科達文西量 ≥<input id="dv-thr" type="number" min="1" max="50" value="'+CFG.thr+'" style="width:44px"> % 為高頻，各完成 <input id="dv-need" type="number" min="1" max="10" value="'+CFG.need+'" style="width:40px"> 次</span><span style="color:#9CA3AF;font-size:12px">（該科達文西至少 '+CFG.minVol+' 場才建立標準）・「狀態」欄可手動標註</span></div>';
+ h+='<div style="background:#fff;border-radius:12px;border:1px solid #DDD6FE;overflow:hidden"><table><thead><tr><th>#</th><th>員編</th><th>姓名</th><th>年資</th><th>刷手</th><th>流動</th><th>合計</th><th>首次跟刀</th><th>最近跟刀</th><th>可獨立科別</th><th>狀態</th><th></th></tr></thead><tbody>';
+ list.forEach(function(p,i){var key=p.id||p.name;var s=p.staff;
+  h+='<tr class="dvr" data-k="'+esc(key)+'"'+(DVM[key]?' style="background:'+STC[DVM[key]][1]+'"':'')+'><td style="color:#9CA3AF">'+(i+1)+'</td><td style="color:#6B7280">'+esc(p.id||"—")+'</td><td style="font-weight:700">'+esc(p.name)+(DVM[key]?' <span class="dvb" style="background:'+STC[DVM[key]][0]+';color:#fff">'+STC[DVM[key]][2]+' '+DVM[key]+'</span>':'')+(s?'':' <span class="dvb" style="background:#FEF3C7;color:#92400E">未在人員名單</span>')+'</td><td>'+(s?calcSen(s.hireDate):"—")+'</td><td><span class="dvb" style="background:#DCFCE7;color:#15803D">'+((p.roles["刷手"]||{}).c||0)+'</span></td><td><span class="dvb" style="background:#DBEAFE;color:#1D4ED8">'+((p.roles["流動"]||{}).c||0)+'</span></td><td style="font-weight:800">'+p.total+'</td><td style="font-size:12px;color:#6B7280">'+(p.first||"—")+'</td><td style="font-size:12px;color:#6B7280">'+(p.last||"—")+'</td><td style="font-size:11px;white-space:nowrap">'+([["刷手","#15803D","#DCFCE7"],["流動","#1D4ED8","#DBEAFE"]].map(function(r){var n=indep(p.roles[r[0]]).length;return n?'<span class="dvb" style="background:'+r[2]+';color:'+r[1]+'">'+r[0]+' '+n+'科</span> ':''}).join("")||'<span style="color:#9CA3AF">—</span>')+'</td><td style="text-align:center"><select class="dvtr" data-k="'+esc(key)+'" style="border:1px solid #DDD6FE;border-radius:8px;padding:2px 4px;font-size:12px;background:#fff;cursor:pointer"><option value="">—</option>'+["訓練中","完訓","獨立"].map(function(o){return'<option'+(DVM[key]===o?' selected':'')+'>'+o+'</option>'}).join("")+'</select></td><td><button class="dvdel" data-k="'+esc(key)+'" title="刪除（已離職）" style="border:1px solid #FCA5A5;background:#FEF2F2;color:#DC2626;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:12px">🗑 刪除</button></td></tr>';
+  if(sel===key){h+='<tr><td colspan="12" style="background:#FAF5FF;padding:14px 18px">'+detail(p)+'</td></tr>'}});
+ h+='</tbody></table></div>';
+ if(DVH.length)h+='<div style="margin-top:14px;font-size:12px;color:#6B7280">已刪除 '+DVH.length+' 位：'+DVH.map(function(k){return'<span style="display:inline-block;background:#F3F4F6;border-radius:8px;padding:2px 8px;margin:2px">'+esc(k)+' <a href="#" class="dvres" data-k="'+esc(k)+'" style="color:#7C3AED">還原</a></span>'}).join("")+'</div>';
+ b.innerHTML=h;
+ ["dv-thr","dv-need"].forEach(function(id){var el=document.getElementById(id);if(el)el.onchange=function(){var v=Math.max(1,+el.value||1);if(id==="dv-thr")CFG.thr=v;else CFG.need=v;try{localStorage.setItem("dvcfg",JSON.stringify(CFG))}catch(e){}render()}});
+ var ft=document.getElementById("dv-fT");if(ft)ft.onchange=function(){fT=ft.value;render()};
+ b.querySelectorAll(".dvtr").forEach(function(x){x.onclick=function(ev){ev.stopPropagation()};x.onchange=function(){setSt(x.dataset.k,x.value)}});
+ b.querySelectorAll(".dvdel").forEach(function(x){x.onclick=function(ev){ev.stopPropagation();var k=x.dataset.k;if(!confirm("確定從達文西名單刪除「"+k+"」？（可在下方還原）"))return;sel=null;saveH(DVH.concat([k]))}});
+ b.querySelectorAll(".dvres").forEach(function(x){x.onclick=function(ev){ev.preventDefault();var k=x.dataset.k;saveH(DVH.filter(function(z){return z!==k}))}});
+ b.querySelectorAll("tr.dvr").forEach(function(tr){tr.onclick=function(){sel=(sel===tr.dataset.k?null:tr.dataset.k);render()}})}
+function bars(obj,color,top){var ks=Object.keys(obj).sort(function(a,b){return obj[b]-obj[a]}).slice(0,top||8);if(!ks.length)return'<div style="color:#9CA3AF;font-size:12px">—</div>';var mx=obj[ks[0]];
+ return ks.map(function(k){return'<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin:3px 0"><span style="width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(k)+'">'+esc(k)+'</span><div style="flex:1;height:7px;background:#EDE9FE;border-radius:9px;overflow:hidden"><i style="display:block;height:100%;width:'+(obj[k]/mx*100)+'%;background:'+color+'"></i></div><b style="width:30px;text-align:right">'+obj[k]+'</b></div>'}).join("")}
+function detail(p){var h='<div style="display:flex;gap:22px;flex-wrap:wrap">';
+ [["刷手","#16A34A"],["流動","#2563EB"]].forEach(function(r){var e=p.roles[r[0]];h+='<div style="flex:1;min-width:280px"><div style="font-size:13px;font-weight:800;color:'+r[1]+';margin-bottom:4px">'+r[0]+'護士・'+(e?e.c:0)+' 場'+(e&&e.first?'<span style="font-weight:400;color:#6B7280;font-size:11px">（'+e.first+' ～ '+e.last+'）</span>':'')+'</div><div style="font-size:11px;color:#6B7280;margin:6px 0 2px">各術式次數</div>'+bars(e?e.proc:{},r[1],8)+'<div style="font-size:11px;color:#6B7280;margin:8px 0 2px">各科獨立進度</div>'+deptProg(e,r[1])+'</div>'});
+ var mo={};["刷手","流動"].forEach(function(r){var e=p.roles[r];if(e)Object.keys(e.mo||{}).forEach(function(k){mo[k]=(mo[k]||0)+e.mo[k]})});var ks=Object.keys(mo).sort();
+ if(ks.length){var mx=Math.max.apply(null,ks.map(function(k){return mo[k]}));h+='</div><div style="font-size:11px;color:#6B7280;margin:12px 0 4px">每月達文西跟刀量</div><div style="display:flex;align-items:flex-end;gap:3px;height:46px">'+ks.map(function(k){return'<div title="'+k+'：'+mo[k]+' 場" style="flex:1;max-width:26px;background:#7C3AED;border-radius:3px 3px 0 0;height:'+Math.max(4,mo[k]/mx*44)+'px"></div>'}).join("")+'</div><div style="display:flex;justify-content:space-between;font-size:10px;color:#9CA3AF"><span>'+ks[0]+'</span><span>'+ks[ks.length-1]+'</span></div>';return h}
+ return h+'</div>'}
+function handleFiles(files){var all=[],names=[],pend=files.length,bad=[];
+ Array.prototype.forEach.call(files,function(f){var rd=new FileReader(),isT=/\.(csv|tsv|txt)$/i.test(f.name);rd.onload=function(ev){try{var wb=isT?XLSX.read(String(ev.target.result).replace(/^\uFEFF/,""),{type:"string"}):XLSX.read(ev.target.result,{type:"array"});var ws=wb.Sheets[wb.SheetNames[0]];var rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:""});var r=parseRows(rows);if(!r){console.error("dv rows",JSON.stringify(rows.slice(0,3)));bad.push(f.name)}else{all=all.concat(r.rows);names.push(f.name)}}catch(e){console.error("dv import",e);bad.push(f.name)}
+  if(--pend===0)done()};if(isT)rd.readAsText(f,"UTF-8");else rd.readAsArrayBuffer(f)});
+ function done(){if(bad.length)toast("無法辨識欄位："+bad.join("、")+"（需含 術式、刷手護士、流動護士）",false);if(!all.length)return;
+  var d=aggregate(all,names);DV=d;sel=null;render();
+  if(window.saveDavinci){window.saveDavinci(d).then(function(){toast("已匯入並同步 "+all.length+" 場達文西手術")}).catch(function(e){toast("已匯入，但雲端同步失敗："+e.message,false)})}else toast("已匯入 "+all.length+" 場（未連線雲端）")}}
+document.getElementById("dv-file").addEventListener("change",function(e){if(e.target.files.length)handleFiles(e.target.files);e.target.value=""});
+document.getElementById("dv-q").addEventListener("input",render);
+document.getElementById("dv-sort").addEventListener("change",function(e){sortBy=e.target.value;render()});
+window.openDv=function(){open=true;m.style.display="block";document.body.style.overflow="hidden";render()};
+window.closeDv=function(){open=false;m.style.display="none";document.body.style.overflow=""};
+function cnt(v){return Object.keys(DVM).filter(function(k){return DVM[k]===v}).length}
+var CFG={thr:5,need:1,minVol:10};try{var _c=JSON.parse(localStorage.getItem("dvcfg")||"null");if(_c)CFG=_c}catch(e){}
+function req(d){var v=(DV.vol||{})[d];if(!v)return[];var t=0,k;for(k in v)t+=v[k];if(t<CFG.minVol)return[];return Object.keys(v).filter(function(x){return v[x]/t*100>=CFG.thr}).sort(function(a,b){return v[b]-v[a]})}
+function prog(e,d){var r=req(d),m=(e.dp||{})[d]||{};var done=r.filter(function(x){return(m[x]||0)>=CFG.need});return{r:r,done:done,ok:r.length>0&&done.length===r.length}}
+function indep(e){return e?Object.keys(e.dept||{}).filter(function(d){return prog(e,d).ok}):[]}
+function deptProg(e,color){if(!e||!Object.keys(e.dept||{}).length)return'<div style="color:#9CA3AF;font-size:12px">—</div>';
+ return Object.keys(e.dept).sort(function(a,b){return e.dept[b]-e.dept[a]}).map(function(d){var pr=prog(e,d);var n=pr.r.length;var miss=pr.r.filter(function(x){return pr.done.indexOf(x)<0});
+  return'<div style="margin:5px 0;font-size:12px"><div style="display:flex;align-items:center;gap:8px"><span style="width:90px;font-weight:600">'+esc(d)+'</span><div style="flex:1;height:7px;background:#EDE9FE;border-radius:9px;overflow:hidden"><i style="display:block;height:100%;width:'+(n?pr.done.length/n*100:0)+'%;background:'+(pr.ok?"#16A34A":color)+'"></i></div><span style="width:70px;text-align:right">'+(n?pr.done.length+'/'+n+' 術式':e.dept[d]+' 場')+'</span>'+(pr.ok?'<span class="dvb" style="background:#DCFCE7;color:#15803D">可獨立</span>':n?'':'<span style="color:#9CA3AF;font-size:10px">標準未建</span>')+'</div>'+(n&&!pr.ok?'<div style="color:#9CA3AF;font-size:10px;margin-left:98px">尚缺：'+esc(miss.slice(0,4).join("、"))+(miss.length>4?" 等"+miss.length+"項":"")+'</div>':'')+'</div>'}).join("")}
+var DVM={},fT="",STC={"訓練中":["#7C3AED","#F5F3FF","🎓"],"完訓":["#0284C7","#F0F9FF","✅"],"獨立":["#16A34A","#F0FDF4","🏅"]};
+function setSt(k,v){var m={};Object.keys(DVM).forEach(function(x){m[x]=DVM[x]});if(v)m[k]=v;else delete m[k];DVM=m;render();if(window.saveDvTrainee)window.saveDvTrainee(m).catch(function(e){toast('同步失敗：'+e.message,false)})}
+window.dvTr=function(d){var m={};if(d&&d.map)m=d.map;else if(d&&d.list)d.list.forEach(function(k){m[k]="訓練中"});DVM=m;render()};
+var DVH=[];function saveH(l){DVH=l;render();if(window.saveDvHidden)window.saveDvHidden(l).catch(function(e){toast('同步失敗：'+e.message,false)})}
+window.dvHid=function(l){DVH=l||[];render()};
+window.dvLive=function(recs){window.__dvLive=true;var cases=[],circKey=null;
+ recs.forEach(function(r){if(!r)return;if(!circKey){Object.keys(r).forEach(function(k){if(!circKey&&/circ|float|rov|runner|流動/i.test(k))circKey=k})}});
+ recs.forEach(function(r){if(!r)return;var ps=[];people(r.scrub).forEach(function(p){ps.push({p:p,role:"刷手"})});
+  if(circKey)people(r[circKey]).forEach(function(p){ps.push({p:p,role:"流動"})});
+  if(!ps.length)return;cases.push({date:pd(r.date),proc:String(r.surgery||"").trim(),dept:String(r.dept||"").trim(),ps:ps})});
+ var d=aggregate(cases,["達文西系統（即時連線）"]);d.meta.live=true;d.meta.circ=!!circKey;DV=d;render()};
+window.dvSet=function(d){if(d&&d.list){DV={list:d.list,vol:d.vol||{},meta:d.meta||null};render()}};
+window.__dv={parseRows:parseRows,aggregate:aggregate,handleFiles:handleFiles};
+})();
+</script>
 </body>
 </html>
